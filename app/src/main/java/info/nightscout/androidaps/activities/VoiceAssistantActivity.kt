@@ -59,32 +59,31 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
 //        val assistantCommandsAllowed = sp.getBoolean(R.string.key_googleassistant_commandsallowed, false)
 //TODO need code here to check whether this is set to "on" in preferences and if not to send an intent back to AutoVoice to reply.
 
-        val bundle: Bundle? = intent.extras
-        val requestType: String? = bundle?.getString("requesttype")
+        val requestType: String? = intent.getStringExtra("requesttype")
         if (requestType == null) {
-            aapsLogger.debug(LTag.VOICECOMMAND, "Intent is null. Aborting.")
+            aapsLogger.debug(LTag.VOICECOMMAND, "requestType is null. Aborting.")
             messageToUser("An error has occurred. Aborting.")
             return
         } else {
             aapsLogger.debug(LTag.VOICECOMMAND, requestType)
             when (requestType) {
                 "carb"         ->
-                    if (bundle.getString("amount") == null) {
+                    if (intent.getStringExtra("amount") == null) {
                         aapsLogger.debug(LTag.VOICECOMMAND, "Amount is null, aborting")
                         messageToUser("An error has occurred. Aborting.")
                         return
                     } else {
                         aapsLogger.debug(LTag.VOICECOMMAND, "Processing carb request")
-                        processCarbs(bundle.getString("amount"))
+                        processCarbs(intent.getStringExtra("amount"))
                     }
                 "bolus"         ->
-                    if (bundle.getString("units") == null || bundle.getBoolean("meal") == null) {
+                    if (intent.getStringExtra("units") == null || intent.getStringExtra("meal") == null) {
                         aapsLogger.debug(LTag.VOICECOMMAND, "Bolus request received was not complete, aborting")
                         messageToUser("An error has occurred. Aborting.")
                         return
                     } else {
                         aapsLogger.debug(LTag.VOICECOMMAND, "Processing bolus request")
-                        processBolus(bundle.getString("units"), bundle.getBoolean("meal"))
+                        processBolus(intent.getStringExtra("units"), intent.getStringExtra("meal"))
                     }
             }
         }
@@ -129,13 +128,14 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
         }
     }
 
-    private fun processBolus(_units: String, _ismeal: Boolean) {
+    private fun processBolus(_units: String, _ismeal: String) {
 
         //TODO security check
 
         val splitted = _units.split(Regex("\\s+")).toTypedArray()
         var bolusRequest = SafeParse.stringToDouble(splitted[0])
         var bolus = constraintChecker.applyBolusConstraints(Constraint(bolusRequest)).value()
+        var meal = SafeParse.stringToInt(_ismeal)
         if (bolusRequest != bolus) messageToUser(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "bolus", bolusRequest, bolus))
         if (bolus > 0.0) {
             aapsLogger.debug(LTag.VOICECOMMAND, "Received bolus request")
@@ -149,11 +149,11 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
                     commandQueue.readStatus("VOICECOMMAND", object : Callback() {
                         override fun run() {
                             if (resultSuccess) {
-                                var replyText = if (_ismeal) String.format(resourceHelper.gs(R.string.smscommunicator_mealbolusdelivered), resultBolusDelivered)
+                                var replyText = if (meal == 1) String.format(resourceHelper.gs(R.string.smscommunicator_mealbolusdelivered), resultBolusDelivered)
                                 else String.format(resourceHelper.gs(R.string.smscommunicator_bolusdelivered), resultBolusDelivered)
                                 replyText += "\n" + activePlugin.activePump.shortStatus(true)
                                 lastRemoteBolusTime = DateUtil.now()
-                                if (_ismeal) {
+                                if (meal == 1) {
                                     profileFunction.getProfile()?.let { currentProfile ->
                                     var eatingSoonTTDuration = sp.getInt(R.string.key_eatingsoon_duration, Constants.defaultEatingSoonTTDuration)
                                     eatingSoonTTDuration =
