@@ -59,8 +59,8 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
 //        val assistantCommandsAllowed = sp.getBoolean(R.string.key_googleassistant_commandsallowed, false)
 //TODO need code here to check whether this is set to "on" in preferences and if not to send an intent back to AutoVoice to reply.
 
-        val bundle: Bundle = intent.extras
-        val requestType: String? = bundle.getString("requesttype")
+        val bundle: Bundle? = intent.extras
+        val requestType: String? = bundle?.getString("requesttype")
         if (requestType == null) {
             aapsLogger.debug(LTag.VOICECOMMAND, "Intent is null. Aborting.")
             messageToUser("An error has occurred. Aborting.")
