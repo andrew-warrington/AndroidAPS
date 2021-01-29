@@ -22,7 +22,7 @@ import info.nightscout.androidaps.logging.LTag
 import info.nightscout.androidaps.plugins.configBuilder.ConstraintChecker
 import info.nightscout.androidaps.queue.Callback
 import info.nightscout.androidaps.utils.*
-import info.nightscout.androidaps.utils.resources.ResourceHelper
+import info.nightscout.androidaps.utils.extensions.waitMillis
 import info.nightscout.androidaps.utils.sharedPreferences.SP
 import javax.inject.Inject
 
@@ -91,6 +91,7 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
         aapsLogger.debug(LTag.VOICECOMMAND, grams.toString())
         if (grams == 0) {
             aapsLogger.debug(LTag.VOICECOMMAND, "Zero grams requested. Aborting.")
+            if (gramsRequest != grams) waitMillis(3000)
             messageToUser("Zero grams requested. Aborting.")
             return
         } else {
@@ -110,12 +111,14 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
                             replyText = String.format(resourceHelper.gs(R.string.voiceassistant_carbsfailed), grams)
                         }
                         aapsLogger.debug(LTag.VOICECOMMAND, replyText)
+                        if (gramsRequest != grams) waitMillis(3000)
                         messageToUser(replyText)
                     }
                 })
             } else {
                 activePlugin.activeTreatments.addToHistoryTreatment(detailedBolusInfo, true)
                 var replyText = String.format(resourceHelper.gs(R.string.voiceassistant_carbsset), grams)
+                if (gramsRequest != grams) waitMillis(3000)
                 messageToUser(replyText)
             }
         }
@@ -136,9 +139,9 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
         var splitted = intent.getStringExtra("units").split(Regex("\\s+")).toTypedArray()
         val bolusRequest = SafeParse.stringToDouble(splitted[0])
         val bolus = constraintChecker.applyBolusConstraints(Constraint(bolusRequest)).value()
+        if (bolusRequest != bolus) messageToUser(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "bolus", bolusRequest, bolus))
         splitted = intent.getStringExtra("meal").split(Regex("\\s+")).toTypedArray()
         val meal = SafeParse.stringToInt(splitted[0])
-        if (bolusRequest != bolus) messageToUser(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "bolus", bolusRequest, bolus))
         if (bolus > 0.0) {
             aapsLogger.debug(LTag.VOICECOMMAND, "Received bolus request")
             val detailedBolusInfo = DetailedBolusInfo()
@@ -180,11 +183,13 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
                                     replyText += "\n" + String.format(resourceHelper.gs(R.string.smscommunicator_mealbolusdelivered_tt), tt, eatingSoonTTDuration)
                                     }
                                 }
+                                if (bolusRequest != bolus) waitMillis(3000)
                                 messageToUser(replyText)
                             }
                             else {
                                 var replyText = resourceHelper.gs(R.string.smscommunicator_bolusfailed)
                                 replyText += "\n" + activePlugin.activePump.shortStatus(true)
+                                if (bolusRequest != bolus) waitMillis(3000)
                                 messageToUser(replyText)
                             }
                         }
@@ -192,7 +197,7 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
                 }
             })
         }
-        else messageToUser(resourceHelper.gs(R.string.wrongformat))
+        else messageToUser("Zero units requested. Aborting.")
     }
 
     private fun messageToUser(message: String) {
