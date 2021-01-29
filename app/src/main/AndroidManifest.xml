@@ -258,7 +258,20 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-
+        <activity
+            android:name=".activities.VoiceAssistantActivity"
+            android:theme="@android:style/Theme.NoDisplay"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="androidaps"
+                    android:host="voiceassistant"/>
+            </intent-filter>
+        </activity>
         <!-- Medtronic service and activities -->
         <service
             android:name=".plugins.pump.medtronic.service.RileyLinkMedtronicService"
