@@ -83,8 +83,7 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
     }
 
     private fun processCarbs(intent: Intent) {
-        val carbRequest: String? = intent.getStringExtra("amount")
-        if (carbRequest != null) {
+        if (intent.getStringExtra("amount") != null) {
             aapsLogger.debug(LTag.VOICECOMMAND, "Processing carb request")
         } else {
             aapsLogger.debug(LTag.VOICECOMMAND, "Amount is null, aborting")
@@ -92,7 +91,7 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
             return
         }
         val time = DateUtil.now()
-        val splitted = carbRequest.split(Regex("\\s+")).toTypedArray()
+        val splitted = intent.getStringExtra("amount").split(Regex("\\s+")).toTypedArray()
         var gramsRequest = SafeParse.stringToInt(splitted[0])
         var grams = constraintChecker.applyCarbsConstraints(Constraint(gramsRequest)).value()
         if (gramsRequest != grams) messageToUser(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "carb", gramsRequest, grams))
