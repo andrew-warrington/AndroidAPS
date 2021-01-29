@@ -61,20 +61,20 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
 
         val requestType: String? = intent.getStringExtra("requesttype")
         if (requestType == null) {
-            aapsLogger.debug(LTag.VOICECOMMAND, "requestType is null. Aborting.")
+            aapsLogger.debug(LTag.VOICECOMMAND, "requesttype is null. Aborting.")
             messageToUser("An error has occurred. Aborting.")
             return
         } else {
             aapsLogger.debug(LTag.VOICECOMMAND, requestType)
             when (requestType) {
                 "carb"         ->
-                    if (intent.getStringExtra("amount") == null) {
+                    if (intent.getStringExtra("amount") != null) {
+                        aapsLogger.debug(LTag.VOICECOMMAND, "Processing carb request")
+                        processCarbs(intent.getStringExtra("amount"))
+                    } else {
                         aapsLogger.debug(LTag.VOICECOMMAND, "Amount is null, aborting")
                         messageToUser("An error has occurred. Aborting.")
                         return
-                    } else {
-                        aapsLogger.debug(LTag.VOICECOMMAND, "Processing carb request")
-                        processCarbs(intent.getStringExtra("amount"))
                     }
                 "bolus"         ->
                     if (intent.getStringExtra("units") == null || intent.getStringExtra("meal") == null) {
