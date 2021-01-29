@@ -70,14 +70,7 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
                 "carb"         ->
                     processCarbs(intent)
                 "bolus"         ->
-                    if (intent.getStringExtra("units") == null || intent.getStringExtra("meal") == null) {
-                        aapsLogger.debug(LTag.VOICECOMMAND, "Bolus request received was not complete, aborting")
-                        messageToUser("An error has occurred. Aborting.")
-                        return
-                    } else {
-                        aapsLogger.debug(LTag.VOICECOMMAND, "Processing bolus request")
-                        processBolus(intent.getStringExtra("units"), intent.getStringExtra("meal"))
-                    }
+                    processBolus(intent)
             }
         }
     }
@@ -128,14 +121,23 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
         }
     }
 
-    private fun processBolus(_units: String, _ismeal: String) {
+    private fun processBolus(intent: Intent) {
 
         //TODO security check
 
-        val splitted = _units.split(Regex("\\s+")).toTypedArray()
-        var bolusRequest = SafeParse.stringToDouble(splitted[0])
-        var bolus = constraintChecker.applyBolusConstraints(Constraint(bolusRequest)).value()
-        var meal = SafeParse.stringToInt(_ismeal)
+        if (intent.getStringExtra("units") != null && intent.getStringExtra("meal") != null) {
+            aapsLogger.debug(LTag.VOICECOMMAND, "Processing bolus request")
+        } else {
+            aapsLogger.debug(LTag.VOICECOMMAND, "Bolus request received was not complete, aborting")
+            messageToUser("An error has occurred. Aborting.")
+            return
+        }
+
+        var splitted = intent.getStringExtra("units").split(Regex("\\s+")).toTypedArray()
+        val bolusRequest = SafeParse.stringToDouble(splitted[0])
+        val bolus = constraintChecker.applyBolusConstraints(Constraint(bolusRequest)).value()
+        splitted = intent.getStringExtra("meal").split(Regex("\\s+")).toTypedArray()
+        val meal = SafeParse.stringToInt(splitted[0])
         if (bolusRequest != bolus) messageToUser(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "bolus", bolusRequest, bolus))
         if (bolus > 0.0) {
             aapsLogger.debug(LTag.VOICECOMMAND, "Received bolus request")
