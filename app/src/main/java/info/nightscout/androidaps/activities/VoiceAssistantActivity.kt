@@ -29,8 +29,10 @@ import javax.inject.Inject
 
 
 class VoiceAssistantActivity : NoSplashAppCompatActivity() {
+
     @Inject lateinit var aapsLogger: AAPSLogger
-//    @Inject lateinit var constraintChecker: ConstraintChecker
+
+    //    @Inject lateinit var constraintChecker: ConstraintChecker
 //    @Inject lateinit var activePlugin: ActivePluginProvider
 //    @Inject lateinit var dateUtil: DateUtil
 //    @Inject lateinit var commandQueue: CommandQueueProvider
@@ -43,6 +45,8 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
         aapsLogger.debug(LTag.VOICECOMMAND, "Google assistant command received")
         voiceAssistantPlugin.processIntent(intent)
     }
+}
+    /*
 
     fun messageToUser(message: String) {
 
@@ -58,7 +62,7 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
     }
 }
 
-/*
+
 
     var lastRemoteBolusTime: Long = 0
 

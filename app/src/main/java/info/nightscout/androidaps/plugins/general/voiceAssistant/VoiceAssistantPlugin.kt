@@ -13,19 +13,16 @@ import dagger.android.HasAndroidInjector
 import info.nightscout.androidaps.Config
 import info.nightscout.androidaps.Constants
 import info.nightscout.androidaps.R
-import info.nightscout.androidaps.activities.VoiceAssistantActivity
 import info.nightscout.androidaps.data.DetailedBolusInfo
 import info.nightscout.androidaps.data.Profile
 import info.nightscout.androidaps.db.Source
 import info.nightscout.androidaps.db.TempTarget
-import info.nightscout.androidaps.events.EventPreferenceChange
 import info.nightscout.androidaps.interfaces.*
 import info.nightscout.androidaps.logging.AAPSLogger
 import info.nightscout.androidaps.logging.LTag
 import info.nightscout.androidaps.plugins.aps.loop.LoopPlugin
 import info.nightscout.androidaps.plugins.bus.RxBusWrapper
 import info.nightscout.androidaps.plugins.configBuilder.ConstraintChecker
-import info.nightscout.androidaps.plugins.general.smsCommunicator.SmsCommunicatorFragment
 import info.nightscout.androidaps.plugins.general.smsCommunicator.otp.OneTimePassword
 import info.nightscout.androidaps.plugins.iob.iobCobCalculator.IobCobCalculatorPlugin
 import info.nightscout.androidaps.queue.Callback
@@ -58,7 +55,7 @@ class VoiceAssistantPlugin @Inject constructor(
         private val config: Config,
         private val dateUtil: DateUtil,
         private val intent: Intent,
-        private val voiceAssistantActivity: VoiceAssistantActivity
+        private val voiceResponse: VoiceResponseActivity
     ) : PluginBase(PluginDescription()
         .mainType(PluginType.GENERAL)
         .fragmentClass(VoiceAssistantFragment::class.java.name)
@@ -108,7 +105,7 @@ class VoiceAssistantPlugin @Inject constructor(
         val requestType: String? = intent.getStringExtra("requesttype")
         if (requestType == null) {
             aapsLogger.debug(LTag.VOICECOMMAND, "requesttype is null. Aborting.")
-            voiceAssistantActivity.messageToUser("An error has occurred. Aborting.")
+            voiceResponse.messageToUser("An error has occurred. Aborting.")
             return
         } else {
             aapsLogger.debug(LTag.VOICECOMMAND, requestType)
@@ -126,7 +123,7 @@ class VoiceAssistantPlugin @Inject constructor(
             aapsLogger.debug(LTag.VOICECOMMAND, "Processing carb request")
         } else {
             aapsLogger.debug(LTag.VOICECOMMAND, "Amount is null, aborting")
-            voiceAssistantActivity.messageToUser("An error has occurred. Aborting.")
+            voiceResponse.messageToUser("An error has occurred. Aborting.")
             return
         }
         val time = DateUtil.now()
@@ -134,12 +131,12 @@ class VoiceAssistantPlugin @Inject constructor(
         var gramsRequest = SafeParse.stringToInt(splitted[0])
         var grams = constraintChecker.applyCarbsConstraints(Constraint(gramsRequest)).value()
         if (gramsRequest != grams) {
-            voiceAssistantActivity.messageToUser(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "carb", gramsRequest.toString(), grams.toString()))
+            voiceResponse.messageToUser(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "carb", gramsRequest.toString(), grams.toString()))
             return
         }
         if (grams == 0) {
             aapsLogger.debug(LTag.VOICECOMMAND, "Zero grams requested. Aborting.")
-            voiceAssistantActivity.messageToUser("Zero grams requested. Aborting.")
+            voiceResponse.messageToUser("Zero grams requested. Aborting.")
             return
         } else {
             val carbslog = String.format(resourceHelper.gs(R.string.voiceassistant_carbslog), grams, dateUtil.timeString(time))
@@ -158,13 +155,13 @@ class VoiceAssistantPlugin @Inject constructor(
                             replyText = String.format(resourceHelper.gs(R.string.voiceassistant_carbsfailed), grams)
                         }
                         aapsLogger.debug(LTag.VOICECOMMAND, replyText)
-                        voiceAssistantActivity.messageToUser(replyText)
+                        voiceResponse.messageToUser(replyText)
                     }
                 })
             } else {
                 activePlugin.activeTreatments.addToHistoryTreatment(detailedBolusInfo, true)
                 var replyText = String.format(resourceHelper.gs(R.string.voiceassistant_carbsset), grams)
-                voiceAssistantActivity.messageToUser(replyText)
+                voiceResponse.messageToUser(replyText)
             }
         }
     }
@@ -177,7 +174,7 @@ class VoiceAssistantPlugin @Inject constructor(
             aapsLogger.debug(LTag.VOICECOMMAND, "Processing bolus request")
         } else {
             aapsLogger.debug(LTag.VOICECOMMAND, "Bolus request received was not complete, aborting")
-            voiceAssistantActivity.messageToUser("An error has occurred. Aborting.")
+            voiceResponse.messageToUser("An error has occurred. Aborting.")
             return
         }
 
@@ -185,7 +182,7 @@ class VoiceAssistantPlugin @Inject constructor(
         val bolusRequest = SafeParse.stringToDouble(splitted[0])
         val bolus = constraintChecker.applyBolusConstraints(Constraint(bolusRequest)).value()
         if (bolusRequest != bolus) {
-            voiceAssistantActivity.messageToUser(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "bolus", bolusRequest.toString(), bolus.toString()))
+            voiceResponse.messageToUser(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "bolus", bolusRequest.toString(), bolus.toString()))
             return
         }
         splitted = intent.getStringExtra("meal").split(Regex("\\s+")).toTypedArray()
@@ -230,18 +227,18 @@ class VoiceAssistantPlugin @Inject constructor(
                                         replyText += "\n" + String.format(resourceHelper.gs(R.string.voiceassistant_mealbolusdelivered_tt), tt, eatingSoonTTDuration)
                                     }
                                 }
-                                voiceAssistantActivity.messageToUser(replyText)
+                                voiceResponse.messageToUser(replyText)
                             }
                             else {
                                 var replyText = resourceHelper.gs(R.string.smscommunicator_bolusfailed)
 //                              replyText += "\n" + activePlugin.activePump.shortStatus(true)
-                                voiceAssistantActivity.messageToUser(replyText)
+                                voiceResponse.messageToUser(replyText)
                             }
                         }
                     })
                 }
             })
         }
-        else voiceAssistantActivity.messageToUser("Zero units requested. Aborting.")
+        else voiceResponse.messageToUser("Zero units requested. Aborting.")
     }
 }
