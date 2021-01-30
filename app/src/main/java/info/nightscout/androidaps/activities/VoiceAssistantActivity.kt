@@ -89,7 +89,6 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
         if (gramsRequest != grams) messageToUser(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "carb", gramsRequest.toString(), grams.toString()))
         if (grams == 0) {
             aapsLogger.debug(LTag.VOICECOMMAND, "Zero grams requested. Aborting.")
-            if (gramsRequest != grams) Thread.sleep(5000)
             messageToUser("Zero grams requested. Aborting.")
             return
         } else {
@@ -109,14 +108,12 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
                             replyText = String.format(resourceHelper.gs(R.string.voiceassistant_carbsfailed), grams)
                         }
                         aapsLogger.debug(LTag.VOICECOMMAND, replyText)
-                        if (gramsRequest != grams) Thread.sleep(5000)
                         messageToUser(replyText)
                     }
                 })
             } else {
                 activePlugin.activeTreatments.addToHistoryTreatment(detailedBolusInfo, true)
                 var replyText = String.format(resourceHelper.gs(R.string.voiceassistant_carbsset), grams)
-                if (gramsRequest != grams) Thread.sleep(5000)
                 messageToUser(replyText)
             }
         }
@@ -180,13 +177,11 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
                                     replyText += "\n" + String.format(resourceHelper.gs(R.string.voiceassistant_mealbolusdelivered_tt), tt, eatingSoonTTDuration)
                                     }
                                 }
-                                if (bolusRequest != bolus) Thread.sleep(5000)
                                 messageToUser(replyText)
                             }
                             else {
                                 var replyText = resourceHelper.gs(R.string.smscommunicator_bolusfailed)
                                 replyText += "\n" + activePlugin.activePump.shortStatus(true)
-                                if (bolusRequest != bolus) Thread.sleep(5000)
                                 messageToUser(replyText)
                             }
                         }
