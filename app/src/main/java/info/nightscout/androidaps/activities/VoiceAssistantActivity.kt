@@ -86,7 +86,10 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
         val splitted = intent.getStringExtra("amount").split(Regex("\\s+")).toTypedArray()
         var gramsRequest = SafeParse.stringToInt(splitted[0])
         var grams = constraintChecker.applyCarbsConstraints(Constraint(gramsRequest)).value()
-        if (gramsRequest != grams) messageToUser(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "carb", gramsRequest.toString(), grams.toString()))
+        if (gramsRequest != grams) {
+            messageToUser(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "carb", gramsRequest.toString(), grams.toString()))
+            return
+        }
         if (grams == 0) {
             aapsLogger.debug(LTag.VOICECOMMAND, "Zero grams requested. Aborting.")
             messageToUser("Zero grams requested. Aborting.")
@@ -134,7 +137,10 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
         var splitted = intent.getStringExtra("units").split(Regex("\\s+")).toTypedArray()
         val bolusRequest = SafeParse.stringToDouble(splitted[0])
         val bolus = constraintChecker.applyBolusConstraints(Constraint(bolusRequest)).value()
-        if (bolusRequest != bolus) messageToUser(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "bolus", bolusRequest.toString(), bolus.toString()))
+        if (bolusRequest != bolus) {
+            messageToUser(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "bolus", bolusRequest.toString(), bolus.toString()))
+            return
+        }
         splitted = intent.getStringExtra("meal").split(Regex("\\s+")).toTypedArray()
         val meal = SafeParse.stringToInt(splitted[0])
         if (bolus > 0.0) {
