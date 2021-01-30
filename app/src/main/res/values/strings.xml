@@ -1382,7 +1382,7 @@
     <string name="graph_menu_divider_header">Graph</string>
     <string name="voiceAssistant_name">Voice Assistant activity</string>
     <string name="voiceAssistant_shortname">Voice Assistant</string>
-    <string name="description_voiceAssistant">Enables voice commands for AndroidAPS via a voice assistant, using the apps Tasker and AutoVoice.</string>
+    <string name="description_voice_assistant">Enables voice commands for AndroidAPS via a voice assistant, using the apps Tasker and AutoVoice.</string>
     <string name="key_voiceassistant_commandsallowed" translatable="false">voiceassistant_commandsallowed</string>
     <string name="voiceassistant_carbslog">Received request to enter %1$d g of carb at %2$s.</string>
     <string name="voiceassistant_carbsset">Carb %1$d grams entered successfully.</string>
