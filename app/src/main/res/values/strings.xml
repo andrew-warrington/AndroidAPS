@@ -1387,7 +1387,10 @@
     <string name="voiceassistant_carbslog">Received request to enter %1$d g of carb at %2$s.</string>
     <string name="voiceassistant_carbsset">Carb %1$d grams entered successfully.</string>
     <string name="voiceassistant_carbsfailed">Entering %1$d grams of carb failed.</string>
-    <string name="voiceassistant_constraintresult">Due to constraints, your %1s request has been reduced from %2d to %3d.</string>
-    <string name="voiceassistant_messagetouser">Message sent to user: %1s</string>
+    <string name="voiceassistant_constraintresult">Due to constraints, your %1s request has been reduced from %2s to %3s.</string>
+    <string name="voiceassistant_messagetouser">Message sent to user: %1</string>
+    <string name="voiceassistant_bolusdelivered">Bolus %1$.2f U delivered successfully</string>
+    <string name="voiceassistant_mealbolusdelivered">Meal Bolus %1$.2f U delivered successfully</string>
+    <string name="voiceassistant_mealbolusdelivered_tt">Target %1$s for %2$d minutes</string>
 
 </resources>

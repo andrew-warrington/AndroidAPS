@@ -22,7 +22,6 @@ import info.nightscout.androidaps.logging.LTag
 import info.nightscout.androidaps.plugins.configBuilder.ConstraintChecker
 import info.nightscout.androidaps.queue.Callback
 import info.nightscout.androidaps.utils.*
-import info.nightscout.androidaps.utils.extensions.waitMillis
 import info.nightscout.androidaps.utils.sharedPreferences.SP
 import javax.inject.Inject
 
@@ -87,11 +86,10 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
         val splitted = intent.getStringExtra("amount").split(Regex("\\s+")).toTypedArray()
         var gramsRequest = SafeParse.stringToInt(splitted[0])
         var grams = constraintChecker.applyCarbsConstraints(Constraint(gramsRequest)).value()
-        if (gramsRequest != grams) messageToUser(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "carb", gramsRequest, grams))
-        aapsLogger.debug(LTag.VOICECOMMAND, grams.toString())
+        if (gramsRequest != grams) messageToUser(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "carb", gramsRequest.toString(), grams.toString()))
         if (grams == 0) {
             aapsLogger.debug(LTag.VOICECOMMAND, "Zero grams requested. Aborting.")
-            if (gramsRequest != grams) waitMillis(3000)
+            if (gramsRequest != grams) Thread.sleep(5000)
             messageToUser("Zero grams requested. Aborting.")
             return
         } else {
@@ -111,14 +109,14 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
                             replyText = String.format(resourceHelper.gs(R.string.voiceassistant_carbsfailed), grams)
                         }
                         aapsLogger.debug(LTag.VOICECOMMAND, replyText)
-                        if (gramsRequest != grams) waitMillis(3000)
+                        if (gramsRequest != grams) Thread.sleep(5000)
                         messageToUser(replyText)
                     }
                 })
             } else {
                 activePlugin.activeTreatments.addToHistoryTreatment(detailedBolusInfo, true)
                 var replyText = String.format(resourceHelper.gs(R.string.voiceassistant_carbsset), grams)
-                if (gramsRequest != grams) waitMillis(3000)
+                if (gramsRequest != grams) Thread.sleep(5000)
                 messageToUser(replyText)
             }
         }
@@ -139,11 +137,10 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
         var splitted = intent.getStringExtra("units").split(Regex("\\s+")).toTypedArray()
         val bolusRequest = SafeParse.stringToDouble(splitted[0])
         val bolus = constraintChecker.applyBolusConstraints(Constraint(bolusRequest)).value()
-        if (bolusRequest != bolus) messageToUser(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "bolus", bolusRequest, bolus))
+        if (bolusRequest != bolus) messageToUser(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "bolus", bolusRequest.toString(), bolus.toString()))
         splitted = intent.getStringExtra("meal").split(Regex("\\s+")).toTypedArray()
         val meal = SafeParse.stringToInt(splitted[0])
         if (bolus > 0.0) {
-            aapsLogger.debug(LTag.VOICECOMMAND, "Received bolus request")
             val detailedBolusInfo = DetailedBolusInfo()
             detailedBolusInfo.insulin = bolus
             detailedBolusInfo.source = Source.USER
@@ -154,8 +151,8 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
                     commandQueue.readStatus("VOICECOMMAND", object : Callback() {
                         override fun run() {
                             if (resultSuccess) {
-                                var replyText = if (meal == 1) String.format(resourceHelper.gs(R.string.smscommunicator_mealbolusdelivered), resultBolusDelivered)
-                                else String.format(resourceHelper.gs(R.string.smscommunicator_bolusdelivered), resultBolusDelivered)
+                                var replyText = if (meal == 1) String.format(resourceHelper.gs(R.string.voiceassistant_mealbolusdelivered), resultBolusDelivered)
+                                else String.format(resourceHelper.gs(R.string.voiceassistant_bolusdelivered), resultBolusDelivered)
                                 replyText += "\n" + activePlugin.activePump.shortStatus(true)
                                 lastRemoteBolusTime = DateUtil.now()
                                 if (meal == 1) {
@@ -180,16 +177,16 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
                                     val tt = if (currentProfile.units == Constants.MMOL)
                                          DecimalFormatter.to1Decimal(eatingSoonTT)
                                          else DecimalFormatter.to0Decimal(eatingSoonTT)
-                                    replyText += "\n" + String.format(resourceHelper.gs(R.string.smscommunicator_mealbolusdelivered_tt), tt, eatingSoonTTDuration)
+                                    replyText += "\n" + String.format(resourceHelper.gs(R.string.voiceassistant_mealbolusdelivered_tt), tt, eatingSoonTTDuration)
                                     }
                                 }
-                                if (bolusRequest != bolus) waitMillis(3000)
+                                if (bolusRequest != bolus) Thread.sleep(5000)
                                 messageToUser(replyText)
                             }
                             else {
                                 var replyText = resourceHelper.gs(R.string.smscommunicator_bolusfailed)
                                 replyText += "\n" + activePlugin.activePump.shortStatus(true)
-                                if (bolusRequest != bolus) waitMillis(3000)
+                                if (bolusRequest != bolus) Thread.sleep(5000)
                                 messageToUser(replyText)
                             }
                         }
@@ -210,7 +207,7 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
             intent.putExtra("message", message)
             sendBroadcast(intent)
         }
-        aapsLogger.debug(LTag.VOICECOMMAND, resourceHelper.gs(R.string.voiceassistant_messagetouser), message)
+        aapsLogger.debug(LTag.VOICECOMMAND, String.format(resourceHelper.gs(R.string.voiceassistant_messagetouser), message))
     }
  }
 
