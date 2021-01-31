@@ -10,6 +10,7 @@ package info.nightscout.androidaps.activities
 
 import android.content.Intent
 import android.os.Bundle
+import dagger.Provides
 import info.nightscout.androidaps.Constants
 import info.nightscout.androidaps.R
 import info.nightscout.androidaps.data.DetailedBolusInfo
@@ -27,7 +28,6 @@ import info.nightscout.androidaps.utils.sharedPreferences.SP
 import javax.inject.Inject
 
 
-
 class VoiceAssistantActivity : NoSplashAppCompatActivity() {
 
     @Inject lateinit var aapsLogger: AAPSLogger
@@ -40,7 +40,7 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
 //    @Inject lateinit var profileFunction: ProfileFunction
     @Inject lateinit var voiceAssistantPlugin: VoiceAssistantPlugin
 
-    override fun onCreate(savedInstanceState: Bundle?) {
+    @Provides override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         aapsLogger.debug(LTag.VOICECOMMAND, "Google assistant command received")
         voiceAssistantPlugin.processIntent(intent)

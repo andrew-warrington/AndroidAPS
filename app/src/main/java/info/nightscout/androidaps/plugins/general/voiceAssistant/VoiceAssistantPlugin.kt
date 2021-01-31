@@ -9,6 +9,7 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 //TODO move strings to strings.xml
 
 import android.content.Intent
+import dagger.Provides
 import dagger.android.HasAndroidInjector
 import info.nightscout.androidaps.Config
 import info.nightscout.androidaps.Constants
