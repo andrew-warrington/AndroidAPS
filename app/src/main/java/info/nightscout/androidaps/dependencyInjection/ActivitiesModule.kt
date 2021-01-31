@@ -40,6 +40,5 @@ abstract class ActivitiesModule {
     @ContributesAndroidInjector abstract fun contributesSurveyActivity(): SurveyActivity
     @ContributesAndroidInjector abstract fun contributesDefaultProfileActivity(): ProfileHelperActivity
     @ContributesAndroidInjector abstract fun contributesOpenHumansLoginActivity(): OpenHumansLoginActivity
-//    @ContributesAndroidInjector abstract fun contributesVoiceAssistantActivity(): VoiceAssistantActivity
 
 }

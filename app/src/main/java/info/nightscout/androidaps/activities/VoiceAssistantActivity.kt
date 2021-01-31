@@ -42,7 +42,7 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         aapsLogger.debug(LTag.VOICECOMMAND, "Google assistant command received")
-        voiceAssistantPlugin.processIntent(intent)
+        voiceAssistantPlugin.processVoiceCommand(intent)
     }
 }
     /*
