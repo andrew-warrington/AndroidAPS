@@ -40,7 +40,7 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
 //    @Inject lateinit var profileFunction: ProfileFunction
     @Inject lateinit var voiceAssistantPlugin: VoiceAssistantPlugin
 
-    @Provides override fun onCreate(savedInstanceState: Bundle?) {
+    override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         aapsLogger.debug(LTag.VOICECOMMAND, "Google assistant command received")
         voiceAssistantPlugin.processIntent(intent)

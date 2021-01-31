@@ -74,7 +74,6 @@ class VoiceAssistantPlugin @Inject constructor(
 //        processSettings(null)
         super.onStart()
         aapsLogger.debug(LTag.VOICECOMMAND, "Google assistant command received")
-        processIntent(intent)
 //        disposable += rxBus
 //            .toObservable(EventPreferenceChange::class.java)
 //            .observeOn(Schedulers.io())
