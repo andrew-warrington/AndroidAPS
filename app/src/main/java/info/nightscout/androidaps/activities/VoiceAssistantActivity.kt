@@ -31,14 +31,13 @@ import javax.inject.Inject
 class VoiceAssistantActivity : NoSplashAppCompatActivity() {
 
     @Inject lateinit var aapsLogger: AAPSLogger
-
-    //    @Inject lateinit var constraintChecker: ConstraintChecker
+    @Inject lateinit var voiceAssistantPlugin: VoiceAssistantPlugin
+//    @Inject lateinit var constraintChecker: ConstraintChecker
 //    @Inject lateinit var activePlugin: ActivePluginProvider
 //    @Inject lateinit var dateUtil: DateUtil
 //    @Inject lateinit var commandQueue: CommandQueueProvider
 //    @Inject lateinit var sp: SP
 //    @Inject lateinit var profileFunction: ProfileFunction
-    @Inject lateinit var voiceAssistantPlugin: VoiceAssistantPlugin
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,6 +46,8 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
     }
 }
     /*
+
+
 
     fun messageToUser(message: String) {
 
