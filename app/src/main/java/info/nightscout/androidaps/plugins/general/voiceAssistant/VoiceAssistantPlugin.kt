@@ -55,7 +55,6 @@ class VoiceAssistantPlugin @Inject constructor(
         private var otp: OneTimePassword,
         private val config: Config,
         private val dateUtil: DateUtil,
-        private val voiceResponse: VoiceResponseActivity
     ) : PluginBase(PluginDescription()
         .mainType(PluginType.GENERAL)
         .fragmentClass(VoiceAssistantFragment::class.java.name)
@@ -69,7 +68,7 @@ class VoiceAssistantPlugin @Inject constructor(
 
     var lastRemoteBolusTime: Long = 0
     var messages = ArrayList<String>()
-
+    val voiceResponse= VoiceResponseActivity()
 
     override fun onStart() {
 //        processSettings(null)
