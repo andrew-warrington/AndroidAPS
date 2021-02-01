@@ -43,6 +43,6 @@ abstract class ActivitiesModule {
     @ContributesAndroidInjector abstract fun contributesDefaultProfileActivity(): ProfileHelperActivity
     @ContributesAndroidInjector abstract fun contributesOpenHumansLoginActivity(): OpenHumansLoginActivity
 //    @ContributesAndroidInjector abstract fun contributesVoiceAssistantActivity(): VoiceAssistantActivity
-    @ContributesAndroidInjector abstract fun contributesVoiceResponseActivity(): VoiceResponseActivity
+//    @ContributesAndroidInjector abstract fun contributesVoiceResponseActivity(): VoiceResponseActivity
 
 }
