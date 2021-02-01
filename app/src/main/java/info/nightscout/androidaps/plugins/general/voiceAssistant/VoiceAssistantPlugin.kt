@@ -4,9 +4,9 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 // As of Jan 2021 recommend voice assistant integration via Tasker and AutoVoice apps on Android, as these work with both Google and Alexa
 
 //TODO ensure when two or more phones with AAPS can hear the command, only the correct one processes the request
-//TODO load preferences to ensure Google assistant can be used
 //TODO assess whether any permissions required in AndroidManifest
 //TODO move strings to strings.xml
+//TODO logic to enable certain features based on config (pump control, nsclient, APS)
 
 import android.content.Intent
 import dagger.android.HasAndroidInjector
@@ -60,7 +60,7 @@ class VoiceAssistantPlugin @Inject constructor(
     ) : PluginBase(PluginDescription()
         .mainType(PluginType.GENERAL)
         .fragmentClass(VoiceAssistantFragment::class.java.name)
-        .pluginIcon(R.drawable.ic_voice_assistant)
+        .pluginIcon(R.drawable.ic_voiceassistant)
         .pluginName(R.string.voiceassistant)
         .shortName(R.string.voiceassistant_shortname)
         .preferencesId(R.xml.pref_voiceassistant)
@@ -111,7 +111,6 @@ class VoiceAssistantPlugin @Inject constructor(
             voiceResponse.messageToUser("The voice assistant plugin is not allowed. Please enable it.")
             return
         }
-
 /* TODO need code like below linked to some sort of security and/or identity check
         if (!isAllowedNumber(receivedSms.phoneNumber)) {
             aapsLogger.debug(LTag.SMS, "Ignoring SMS from: " + receivedSms.phoneNumber + ". Sender not allowed")
