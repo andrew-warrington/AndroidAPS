@@ -55,7 +55,6 @@ class VoiceAssistantPlugin @Inject constructor(
         private var otp: OneTimePassword,
         private val config: Config,
         private val dateUtil: DateUtil,
-        private val intent: Intent,
         private val voiceResponse: VoiceResponseActivity
     ) : PluginBase(PluginDescription()
         .mainType(PluginType.GENERAL)

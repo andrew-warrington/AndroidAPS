@@ -5,5 +5,5 @@ import dagger.Module
 @Module
 @Suppress("unused")
 
-abstract class VoiceActivityModule {
+abstract class VoiceModule {
 }

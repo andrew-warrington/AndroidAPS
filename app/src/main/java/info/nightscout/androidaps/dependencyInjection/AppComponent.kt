@@ -36,7 +36,7 @@ import javax.inject.Singleton
         OverviewModule::class,
         DataClassesModule::class,
         SMSModule::class,
-        VoiceActivityModule::class,
+        VoiceModule::class,
         UIModule::class,
         CoreModule::class,
         DanaModule::class,
