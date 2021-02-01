@@ -22,6 +22,7 @@ import info.nightscout.androidaps.logging.AAPSLogger
 import info.nightscout.androidaps.logging.LTag
 import info.nightscout.androidaps.plugins.configBuilder.ConstraintChecker
 import info.nightscout.androidaps.plugins.general.voiceAssistant.VoiceAssistantPlugin
+import info.nightscout.androidaps.plugins.general.voiceAssistant.VoiceResponseActivity
 import info.nightscout.androidaps.queue.Callback
 import info.nightscout.androidaps.utils.*
 import info.nightscout.androidaps.utils.sharedPreferences.SP
@@ -32,11 +33,12 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
 
     @Inject lateinit var aapsLogger: AAPSLogger
     @Inject lateinit var voiceAssistantPlugin: VoiceAssistantPlugin
+    @Inject lateinit var voiceResponse: VoiceResponseActivity
 //    @Inject lateinit var constraintChecker: ConstraintChecker
-//    @Inject lateinit var activePlugin: ActivePluginProvider
+    @Inject lateinit var activePlugin: ActivePluginProvider
 //    @Inject lateinit var dateUtil: DateUtil
 //    @Inject lateinit var commandQueue: CommandQueueProvider
-//    @Inject lateinit var sp: SP
+    @Inject lateinit var sp: SP
 //    @Inject lateinit var profileFunction: ProfileFunction
 
     override fun onCreate(savedInstanceState: Bundle?) {
