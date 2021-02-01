@@ -183,7 +183,7 @@ class MyPreferenceFragment : PreferenceFragmentCompat(), OnSharedPreferenceChang
             addPreferencesFromResourceIfEnabled(smsCommunicatorPlugin, rootKey)
             addPreferencesFromResourceIfEnabled(voiceAssistantPlugin, rootKey)
             addPreferencesFromResourceIfEnabled(automationPlugin, rootKey)
-            addPreferencesFromResourceI fEnabled(wearPlugin, rootKey)
+            addPreferencesFromResourceIfEnabled(wearPlugin, rootKey)
             addPreferencesFromResourceIfEnabled(statusLinePlugin, rootKey)
             addPreferencesFromResource(R.xml.pref_alerts, rootKey) // TODO not organized well
             addPreferencesFromResource(R.xml.pref_datachoices, rootKey)
