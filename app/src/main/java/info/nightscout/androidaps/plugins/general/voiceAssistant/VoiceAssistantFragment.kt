@@ -7,9 +7,7 @@ import android.view.ViewGroup
 import dagger.android.support.DaggerFragment
 import info.nightscout.androidaps.R
 import info.nightscout.androidaps.plugins.bus.RxBusWrapper
-import info.nightscout.androidaps.plugins.general.smsCommunicator.Sms
-import info.nightscout.androidaps.plugins.general.smsCommunicator.SmsCommunicatorPlugin
-import info.nightscout.androidaps.plugins.general.smsCommunicator.events.EventSmsCommunicatorUpdateGui
+import info.nightscout.androidaps.plugins.general.voiceAssistant.events.EventVoiceAssistantUpdateGui
 import info.nightscout.androidaps.utils.DateUtil
 import info.nightscout.androidaps.utils.FabricPrivacy
 import info.nightscout.androidaps.utils.HtmlHelper
@@ -38,17 +36,17 @@ class VoiceAssistantFragment : DaggerFragment() {
         @Synchronized
         override fun onResume() {
             super.onResume()
-//            disposable += rxBus
-//                .toObservable(EventSmsCommunicatorUpdateGui::class.java)
-//                .observeOn(AndroidSchedulers.mainThread())
-//                .subscribe({ updateGui() }) { fabricPrivacy.logException(it) }
+            disposable += rxBus
+                .toObservable(EventVoiceAssistantUpdateGui::class.java)
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe({ updateGui() }) { fabricPrivacy.logException(it) }
             updateGui()
         }
 
         @Synchronized
         override fun onPause() {
             super.onPause()
-//            disposable.clear()
+            disposable.clear()
         }
 
         fun updateGui() {
@@ -63,21 +61,8 @@ class VoiceAssistantFragment : DaggerFragment() {
             var logText = ""
             for (x in start until voiceAssistantPlugin.messages.size) {
                 val voicecommand = voiceAssistantPlugin.messages[x]
-                when {
-                    voicecommand.ignored  -> {
-                        logText += dateUtil.timeString(sms.date) + " &lt;&lt;&lt; " + "░ " + sms.phoneNumber + " <b>" + sms.text + "</b><br>"
-                    }
-
-                    voicecommand.received -> {
-                        logText += dateUtil.timeString(sms.date) + " &lt;&lt;&lt; " + (if (sms.processed) "● " else "○ ") + sms.phoneNumber + " <b>" + sms.text + "</b><br>"
-                    }
-
-                    voicecommand.sent     -> {
-                        logText += dateUtil.timeString(sms.date) + " &gt;&gt;&gt; " + (if (sms.processed) "● " else "○ ") + sms.phoneNumber + " <b>" + sms.text + "</b><br>"
-                    }
-                }
+                logText += dateUtil.timeString(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + voicecommand + "</b><br>"
             }
             voiceassistant_log?.text = HtmlHelper.fromHtml(logText)
         }
-    }
 }
