@@ -32,6 +32,7 @@ import info.nightscout.androidaps.plugins.general.nsclient.data.NSSettingsStatus
 import info.nightscout.androidaps.plugins.general.openhumans.OpenHumansUploader
 import info.nightscout.androidaps.plugins.general.smsCommunicator.SmsCommunicatorPlugin
 import info.nightscout.androidaps.plugins.general.tidepool.TidepoolPlugin
+import info.nightscout.androidaps.plugins.general.voiceAssistant.VoiceAssistantPlugin
 import info.nightscout.androidaps.plugins.general.wear.WearPlugin
 import info.nightscout.androidaps.plugins.general.xdripStatusline.StatusLinePlugin
 import info.nightscout.androidaps.plugins.insulin.InsulinOrefFreePeakPlugin
@@ -90,6 +91,7 @@ class MyPreferenceFragment : PreferenceFragmentCompat(), OnSharedPreferenceChang
     @Inject lateinit var poctechPlugin: PoctechPlugin
     @Inject lateinit var tomatoPlugin: TomatoPlugin
     @Inject lateinit var smsCommunicatorPlugin: SmsCommunicatorPlugin
+    @Inject lateinit var voiceAssistantPlugin: VoiceAssistantPlugin
     @Inject lateinit var statusLinePlugin: StatusLinePlugin
     @Inject lateinit var tidepoolPlugin: TidepoolPlugin
     @Inject lateinit var virtualPumpPlugin: VirtualPumpPlugin
@@ -179,8 +181,9 @@ class MyPreferenceFragment : PreferenceFragmentCompat(), OnSharedPreferenceChang
             addPreferencesFromResourceIfEnabled(nsClientPlugin, rootKey)
             addPreferencesFromResourceIfEnabled(tidepoolPlugin, rootKey)
             addPreferencesFromResourceIfEnabled(smsCommunicatorPlugin, rootKey)
+            addPreferencesFromResourceIfEnabled(voiceAssistantPlugin, rootKey)
             addPreferencesFromResourceIfEnabled(automationPlugin, rootKey)
-            addPreferencesFromResourceIfEnabled(wearPlugin, rootKey)
+            addPreferencesFromResourceI fEnabled(wearPlugin, rootKey)
             addPreferencesFromResourceIfEnabled(statusLinePlugin, rootKey)
             addPreferencesFromResource(R.xml.pref_alerts, rootKey) // TODO not organized well
             addPreferencesFromResource(R.xml.pref_datachoices, rootKey)
