@@ -13,7 +13,7 @@ class VoiceResponseActivity : NoSplashAppCompatActivity() {
     @Inject lateinit var aapsLogger: AAPSLogger
 
     @Provides
-    fun messageToUser(message: String) {
+    fun messageToUser(message: String): Int {
 
         //external voice assistant must implement a receiver to speak these messages back to the user.
         //this is possible via Tasker on Android, for example.
@@ -24,5 +24,6 @@ class VoiceResponseActivity : NoSplashAppCompatActivity() {
             sendBroadcast(intent)
         }
         aapsLogger.debug(LTag.VOICECOMMAND, String.format(resourceHelper.gs(R.string.voiceassistant_messagetouser), message))
+        return 1
     }
 }
