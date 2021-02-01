@@ -7,7 +7,10 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 //TODO assess whether any permissions required in AndroidManifest
 //TODO move strings to strings.xml
 //TODO logic to enable certain features based on config (pump control, nsclient, APS)
-
+//TODO set up substitutions for Tasker using a, b, c
+//TODO tasker set up for new command format "add carbohydrates 25 grams now"
+//TODO write code for setting time for carbs
+//TODO write code for meal bolus
 import android.content.Intent
 import dagger.android.HasAndroidInjector
 import info.nightscout.androidaps.Config
