@@ -33,14 +33,16 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
 
     companion object {
 
-        var aapsLogger: AAPSLogger? = null
-        var resourceHelper: ResourceHelper? = null
-        var context: Context? = null
+        lateinit var aapsLogger: AAPSLogger
+        lateinit var resourceHelper: ResourceHelper
+        lateinit var context: Context
 
         fun messageToUser(message: String) {
 
         //external voice assistant must implement a receiver to speak these messages back to the user.
         //this is possible via Tasker on Android, for example.
+
+
 
            Intent().also { intent   ->
                intent.setAction("info.nightscout.androidaps.CONFIRM_RESULT")
