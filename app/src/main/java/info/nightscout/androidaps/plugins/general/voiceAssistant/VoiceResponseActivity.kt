@@ -11,7 +11,7 @@ import javax.inject.Inject
 class VoiceResponseActivity : NoSplashAppCompatActivity() {
 
     @Inject lateinit var aapsLogger: AAPSLogger
-    @Inject lateinit var context: Context
+    @Inject var context: Context = this
 
    fun messageToUser(message: String) {
 
