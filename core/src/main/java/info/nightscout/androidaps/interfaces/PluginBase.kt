@@ -107,8 +107,6 @@ abstract class PluginBase(
         return if (type == PluginType.PROFILE && pluginDescription.mainType == PluginType.PUMP) isEnabled(PluginType.PUMP) else false
     }
 
-    abstract fun sendBroadcast(intent: Intent)
-
     open fun specialEnableCondition(): Boolean {
         return true
     }
