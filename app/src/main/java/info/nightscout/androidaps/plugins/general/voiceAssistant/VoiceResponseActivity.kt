@@ -18,7 +18,7 @@ class VoiceResponseActivity : NoSplashAppCompatActivity() {
         //this is possible via Tasker on Android, for example.
         var context: Context = this
 
-        Intent().also {
+        this.intent = Intent().also {
             it.setAction("info.nightscout.androidaps.CONFIRM_RESULT")
             it.putExtra("message", message)
             context.sendBroadcast(it)
