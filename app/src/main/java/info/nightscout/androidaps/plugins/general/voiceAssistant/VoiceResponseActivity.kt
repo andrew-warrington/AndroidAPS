@@ -1,5 +1,6 @@
 package info.nightscout.androidaps.plugins.general.voiceAssistant
 
+import android.content.Context
 import android.content.Intent
 import info.nightscout.androidaps.R
 import info.nightscout.androidaps.activities.NoSplashAppCompatActivity
@@ -10,8 +11,9 @@ import javax.inject.Inject
 class VoiceResponseActivity : NoSplashAppCompatActivity() {
 
     @Inject lateinit var aapsLogger: AAPSLogger
+    @Inject lateinit var context: Context
 
-    fun messageToUser(message: String) {
+   fun messageToUser(message: String) {
 
         //external voice assistant must implement a receiver to speak these messages back to the user.
         //this is possible via Tasker on Android, for example.
@@ -19,7 +21,7 @@ class VoiceResponseActivity : NoSplashAppCompatActivity() {
         Intent().also {
             it.setAction("info.nightscout.androidaps.CONFIRM_RESULT")
             it.putExtra("message", message)
-            this.sendBroadcast(it)
+            context.sendBroadcast(it)
         }
         aapsLogger.debug(LTag.VOICECOMMAND, String.format(resourceHelper.gs(R.string.voiceassistant_messagetouser), message))
     }
