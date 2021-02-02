@@ -35,8 +35,9 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
     fun messageToUser(intent: Intent) {
 
         if (intent != null) {
-            sendBroadcast(intent)
-            aapsLogger.debug(LTag.VOICECOMMAND, String.format(resourceHelper.gs(R.string.voiceassistant_messagetouser), intent.getStringExtra("message)")))
+            this.intent = intent
+            sendBroadcast(this.intent)
+            aapsLogger.debug(LTag.VOICECOMMAND, String.format(resourceHelper.gs(R.string.voiceassistant_messagetouser), this.intent.getStringExtra("message)")))
         }
     }
 }
