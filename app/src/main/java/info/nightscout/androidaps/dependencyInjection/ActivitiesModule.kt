@@ -10,7 +10,6 @@ import info.nightscout.androidaps.plugins.general.openhumans.OpenHumansLoginActi
 import info.nightscout.androidaps.plugins.general.overview.activities.QuickWizardListActivity
 import info.nightscout.androidaps.plugins.general.smsCommunicator.AuthRequest
 import info.nightscout.androidaps.plugins.general.smsCommunicator.activities.SmsCommunicatorOtpActivity
-import info.nightscout.androidaps.plugins.general.voiceAssistant.VoiceResponseActivity
 import info.nightscout.androidaps.plugins.pump.common.dialog.RileyLinkBLEConfigActivity
 import info.nightscout.androidaps.plugins.pump.common.hw.rileylink.dialog.RileyLinkStatusActivity
 import info.nightscout.androidaps.plugins.pump.insight.activities.InsightAlertActivity
@@ -18,6 +17,7 @@ import info.nightscout.androidaps.plugins.pump.insight.activities.InsightPairing
 import info.nightscout.androidaps.plugins.pump.insight.activities.InsightPairingInformationActivity
 import info.nightscout.androidaps.plugins.pump.medtronic.dialog.MedtronicHistoryActivity
 import info.nightscout.androidaps.setupwizard.SetupWizardActivity
+import info.nightscout.androidaps.activities.VoiceAssistantActivity
 
 @Module
 @Suppress("unused")
@@ -42,7 +42,5 @@ abstract class ActivitiesModule {
     @ContributesAndroidInjector abstract fun contributesSurveyActivity(): SurveyActivity
     @ContributesAndroidInjector abstract fun contributesDefaultProfileActivity(): ProfileHelperActivity
     @ContributesAndroidInjector abstract fun contributesOpenHumansLoginActivity(): OpenHumansLoginActivity
-    @ContributesAndroidInjector abstract fun contributesVoiceAssistantActivity(): VoiceAssistantActivity
-    @ContributesAndroidInjector abstract fun contributesVoiceResponseActivity(): VoiceResponseActivity
-
+//    @ContributesAndroidInjector abstract fun contributesVoiceAssistantActivity(): VoiceAssistantActivity
 }
