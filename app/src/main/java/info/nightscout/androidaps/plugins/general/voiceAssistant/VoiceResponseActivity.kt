@@ -11,12 +11,12 @@ import javax.inject.Inject
 class VoiceResponseActivity : NoSplashAppCompatActivity() {
 
     @Inject lateinit var aapsLogger: AAPSLogger
-    @Inject var context: Context = this
 
    fun messageToUser(message: String) {
 
         //external voice assistant must implement a receiver to speak these messages back to the user.
         //this is possible via Tasker on Android, for example.
+        var context: Context = this
 
         Intent().also {
             it.setAction("info.nightscout.androidaps.CONFIRM_RESULT")
