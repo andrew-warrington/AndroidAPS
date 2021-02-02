@@ -12,6 +12,7 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 //TODO write code for setting time for carbs
 //TODO write code for meal bolus
 //TODO fix icon
+//TODO combine activities into one
 
 import android.content.Intent
 import dagger.android.HasAndroidInjector
