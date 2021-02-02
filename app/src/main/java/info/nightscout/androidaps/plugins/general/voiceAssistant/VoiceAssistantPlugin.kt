@@ -109,11 +109,11 @@ class VoiceAssistantPlugin @Inject constructor(
         val assistantCommandsAllowed = sp.getBoolean(R.string.key_voiceassistant_commandsallowed, false)
 
         if (!isEnabled(PluginType.GENERAL)) {
-            voiceAssistant.messageToUser("The voice assistant plugin is disabled. Please enable it.")
+            userFeedback("The voice assistant plugin is disabled. Please enable it.")
             return
         }
         if (!assistantCommandsAllowed) {
-            voiceAssistant.messageToUser("The voice assistant plugin is not allowed. Please enable it.")
+            userFeedback("The voice assistant plugin is not allowed. Please enable it.")
             return
         }
 /* TODO need code like below linked to some sort of security and/or identity check
@@ -129,7 +129,7 @@ class VoiceAssistantPlugin @Inject constructor(
         if (requestType == null) {
             val requestTypeNotReceived = "Request type not received. Aborting"
             messages.add(requestTypeNotReceived)
-            voiceAssistant.messageToUser(requestTypeNotReceived)
+            userFeedback(requestTypeNotReceived)
             return
         } else {
             aapsLogger.debug(LTag.VOICECOMMAND, requestType)
@@ -148,7 +148,7 @@ class VoiceAssistantPlugin @Inject constructor(
             aapsLogger.debug(LTag.VOICECOMMAND, "Processing carb request")
         } else {
             val carbAmountNotReceived = "Carb amount not received. Aborting."
-            voiceAssistant.messageToUser(carbAmountNotReceived)
+            userFeedback(carbAmountNotReceived)
             messages.add(carbAmountNotReceived)
             return
         }
@@ -157,13 +157,13 @@ class VoiceAssistantPlugin @Inject constructor(
         var grams = constraintChecker.applyCarbsConstraints(Constraint(gramsRequest)).value()
         if (gramsRequest != grams) {
             val constraintResponse = String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "carb", gramsRequest.toString(), grams.toString())
-            voiceAssistant.messageToUser(constraintResponse)
+            userFeedback(constraintResponse)
             messages.add(constraintResponse)
             return
         }
         if (grams == 0) {
             val zeroGramsResponse = "Zero grams requested. Aborting."
-            voiceAssistant.messageToUser(zeroGramsResponse)
+            userFeedback(zeroGramsResponse)
             messages.add(zeroGramsResponse)
             return
         } else {
@@ -182,14 +182,14 @@ class VoiceAssistantPlugin @Inject constructor(
                         } else {
                             replyText = String.format(resourceHelper.gs(R.string.voiceassistant_carbsfailed), grams)
                         }
-                        voiceAssistant.messageToUser(replyText)
+                        userFeedback(replyText)
                         messages.add(replyText)
                     }
                 })
             } else {
                 activePlugin.activeTreatments.addToHistoryTreatment(detailedBolusInfo, true)
                 var replyText = String.format(resourceHelper.gs(R.string.voiceassistant_carbsset), grams)
-                voiceAssistant.messageToUser(replyText)
+                userFeedback(replyText)
                 messages.add(replyText)
             }
         }
@@ -203,7 +203,7 @@ class VoiceAssistantPlugin @Inject constructor(
             aapsLogger.debug(LTag.VOICECOMMAND, "Processing bolus request")
         } else {
             val bolusRequestIncomplete = "Bolus request received was not complete. Aborting"
-            voiceAssistant.messageToUser(bolusRequestIncomplete)
+            userFeedback(bolusRequestIncomplete)
             messages.add(bolusRequestIncomplete)
             return
         }
@@ -213,7 +213,7 @@ class VoiceAssistantPlugin @Inject constructor(
         val bolus = constraintChecker.applyBolusConstraints(Constraint(bolusRequest)).value()
         if (bolusRequest != bolus) {
             val constraintResponse = String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "bolus", bolusRequest.toString(), bolus.toString())
-            voiceAssistant.messageToUser(constraintResponse)
+            userFeedback(constraintResponse)
             messages.add(constraintResponse)
             return
         }
@@ -259,13 +259,13 @@ class VoiceAssistantPlugin @Inject constructor(
                                         replyText += "\n" + String.format(resourceHelper.gs(R.string.voiceassistant_mealbolusdelivered_tt), tt, eatingSoonTTDuration)
                                     }
                                 }
-                                voiceAssistant.messageToUser(replyText)
+                                userFeedback(replyText)
                                 messages.add(replyText)
                             }
                             else {
                                 var replyText = resourceHelper.gs(R.string.smscommunicator_bolusfailed)
 //                              replyText += "\n" + activePlugin.activePump.shortStatus(true)
-                                voiceAssistant.messageToUser(replyText)
+                                userFeedback(replyText)
                                 messages.add(replyText)
                             }
                         }
@@ -274,9 +274,19 @@ class VoiceAssistantPlugin @Inject constructor(
             })
         } else {
             val zeroUnitsResponse = "Zero units requested. Aborting."
-            voiceAssistant.messageToUser(zeroUnitsResponse)
+            userFeedback(zeroUnitsResponse)
             messages.add(zeroUnitsResponse)
         }
+    }
+
+    private fun userFeedback(message: String) {
+
+        Intent().also { intent ->
+            intent.setAction("info.nightscout.androidaps.USER_FEEDBACK")
+            intent.putExtra("message", message)
+            voiceAssistant.messageToUser(intent)
+        }
+
     }
 
 }

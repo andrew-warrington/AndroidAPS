@@ -17,7 +17,6 @@ import info.nightscout.androidaps.utils.sharedPreferences.SP
 import javax.inject.Inject
 import javax.inject.Singleton
 
-@Singleton
 class VoiceAssistantActivity : NoSplashAppCompatActivity() {
 
     @Inject lateinit var aapsLogger: AAPSLogger
@@ -33,17 +32,10 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
         }
     }
 
-    fun messageToUser(message: String) {
+    fun messageToUser(intent: Intent) {
 
-        /*
-        Intent().also { intent   ->
-            intent.setAction("info.nightscout.androidaps.CONFIRM_RESULT")
-            intent.putExtra("message", message)
-            sendBroadcast(intent)
-        }
-
-         */
-        aapsLogger.debug(LTag.VOICECOMMAND, String.format(resourceHelper.gs(R.string.voiceassistant_messagetouser), message))
+        this.sendBroadcast(intent)
+        aapsLogger.debug(LTag.VOICECOMMAND, String.format(resourceHelper.gs(R.string.voiceassistant_messagetouser), intent.getStringExtra("message)")))
     }
 
 }
