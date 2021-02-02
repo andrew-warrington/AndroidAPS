@@ -75,7 +75,7 @@ class VoiceAssistantPlugin @Inject constructor(
 
     var lastRemoteBolusTime: Long = 0
     var messages = ArrayList<String>()
-    var voiceAssistant= VoiceAssistantActivity()
+    var voiceAssistant= VoiceAssistantActivity.Companion
 
     override fun onStart() {
 //        processSettings(null)
