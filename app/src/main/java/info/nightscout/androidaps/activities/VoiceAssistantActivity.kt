@@ -22,12 +22,10 @@ import info.nightscout.androidaps.logging.AAPSLogger
 import info.nightscout.androidaps.logging.LTag
 import info.nightscout.androidaps.plugins.configBuilder.ConstraintChecker
 import info.nightscout.androidaps.plugins.general.voiceAssistant.VoiceAssistantPlugin
-import info.nightscout.androidaps.plugins.general.voiceAssistant.VoiceResponseActivity
 import info.nightscout.androidaps.queue.Callback
 import info.nightscout.androidaps.utils.*
 import info.nightscout.androidaps.utils.sharedPreferences.SP
 import javax.inject.Inject
-
 
 class VoiceAssistantActivity : NoSplashAppCompatActivity() {
 
