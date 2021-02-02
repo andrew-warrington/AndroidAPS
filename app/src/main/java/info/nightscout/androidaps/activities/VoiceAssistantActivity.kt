@@ -33,9 +33,9 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
 
     companion object {
 
-        @Inject lateinit var aapsLogger: AAPSLogger
-        @Inject lateinit var resourceHelper: ResourceHelper
-        @Inject lateinit var context: Context
+        var aapsLogger: AAPSLogger? = null
+        var resourceHelper: ResourceHelper? = null
+        var context: Context? = null
 
         fun messageToUser(message: String) {
 
@@ -46,7 +46,7 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
                intent.setAction("info.nightscout.androidaps.CONFIRM_RESULT")
                intent.putExtra("message", message)
                context.sendBroadcast(intent)
-        }
+            }
         aapsLogger.debug(LTag.VOICECOMMAND, String.format(resourceHelper.gs(R.string.voiceassistant_messagetouser), message))
         }
     }
