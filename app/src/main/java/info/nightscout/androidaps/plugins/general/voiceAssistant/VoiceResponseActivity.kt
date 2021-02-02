@@ -1,9 +1,7 @@
 package info.nightscout.androidaps.plugins.general.voiceAssistant
 
-import android.content.Context
 import android.content.Intent
 import info.nightscout.androidaps.R
-import info.nightscout.androidaps.activities.MyPreferenceFragment
 import info.nightscout.androidaps.activities.NoSplashAppCompatActivity
 import info.nightscout.androidaps.logging.AAPSLogger
 import info.nightscout.androidaps.logging.LTag
