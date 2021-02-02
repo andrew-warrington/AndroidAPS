@@ -21,8 +21,8 @@ class VoiceResponseActivity : NoSplashAppCompatActivity() {
         myIntent = Intent().also {
             it.setAction("info.nightscout.androidaps.CONFIRM_RESULT")
             it.putExtra("message", message)
-            sendBroadcast(myIntent)
         }
+        sendBroadcast(myIntent)
         aapsLogger.debug(LTag.VOICECOMMAND, String.format(resourceHelper.gs(R.string.voiceassistant_messagetouser), message))
     }
 }
