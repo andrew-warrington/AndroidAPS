@@ -34,11 +34,14 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
 
     fun messageToUser(message: String) {
 
+        /*
         Intent().also { intent   ->
             intent.setAction("info.nightscout.androidaps.CONFIRM_RESULT")
             intent.putExtra("message", message)
             sendBroadcast(intent)
         }
+
+         */
         aapsLogger.debug(LTag.VOICECOMMAND, String.format(resourceHelper.gs(R.string.voiceassistant_messagetouser), message))
     }
 
