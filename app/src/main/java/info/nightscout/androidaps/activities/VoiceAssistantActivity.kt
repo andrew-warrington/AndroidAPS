@@ -33,8 +33,8 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
 
     companion object {
 
-        lateinit var aapsLogger: AAPSLogger
-        lateinit var resourceHelper: ResourceHelper
+        //lateinit var aapsLogger: AAPSLogger
+        //lateinit var resourceHelper: ResourceHelper
         lateinit var context: Context
 
         fun messageToUser(message: String) {
@@ -47,7 +47,7 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
                intent.putExtra("message", message)
                this.context.sendBroadcast(intent)
             }
-        aapsLogger.debug(LTag.VOICECOMMAND, String.format(resourceHelper.gs(R.string.voiceassistant_messagetouser), message))
+        //aapsLogger.debug(LTag.VOICECOMMAND, String.format(resourceHelper.gs(R.string.voiceassistant_messagetouser), message))
         }
     }
 }
