@@ -26,7 +26,7 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        if (intent != null) {
+        if (intent.dataString == "androidaps://voiceassistant") {
             aapsLogger.debug(LTag.VOICECOMMAND, "Google assistant command received")
             voiceAssistantPlugin.processVoiceCommand(intent)
         }
