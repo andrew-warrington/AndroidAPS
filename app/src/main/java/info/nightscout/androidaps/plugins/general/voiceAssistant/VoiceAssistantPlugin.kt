@@ -3,7 +3,7 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 // Receives intents from an external voice assistant and forwards to the VoiceAssistantPlugin
 // As of Jan 2021 recommend voice assistant integration via Tasker and AutoVoice apps on Android, as these work with both Google and Alexa
 
-//TODO ensure when two or more phones with AAPS can hear the command, only the correct one processes the request
+//TODO ensure when two or more phones with AAPS can hear the command, only the correct one processes the request (patient identifier)
 //TODO assess whether any permissions required in AndroidManifest
 //TODO move strings to strings.xml
 //TODO logic to enable certain features based on config (pump control, nsclient, APS)
@@ -11,6 +11,8 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 //TODO tasker set up for new command format "add carbohydrates 25 grams now"
 //TODO write code for setting time for carbs
 //TODO write code for meal bolus
+//TODO fix icon
+
 import android.content.Intent
 import dagger.android.HasAndroidInjector
 import info.nightscout.androidaps.Config
