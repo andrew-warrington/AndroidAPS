@@ -17,11 +17,11 @@ class VoiceResponseActivity : NoSplashAppCompatActivity() {
         //external voice assistant must implement a receiver to speak these messages back to the user.
         //this is possible via Tasker on Android, for example.
 
-        this.intent = Intent().also {
+        intent = Intent().also {
             it.setAction("info.nightscout.androidaps.CONFIRM_RESULT")
             it.putExtra("message", message)
-            this.sendBroadcast(it)
         }
+        sendBroadcast(intent)
         aapsLogger.debug(LTag.VOICECOMMAND, String.format(resourceHelper.gs(R.string.voiceassistant_messagetouser), message))
     }
 }
