@@ -19,6 +19,7 @@ import dagger.android.HasAndroidInjector
 import info.nightscout.androidaps.Config
 import info.nightscout.androidaps.Constants
 import info.nightscout.androidaps.R
+import info.nightscout.androidaps.activities.VoiceAssistantActivity
 import info.nightscout.androidaps.data.DetailedBolusInfo
 import info.nightscout.androidaps.data.Profile
 import info.nightscout.androidaps.db.Source
@@ -74,7 +75,7 @@ class VoiceAssistantPlugin @Inject constructor(
 
     var lastRemoteBolusTime: Long = 0
     var messages = ArrayList<String>()
-    val voiceResponse= VoiceResponseActivity()
+    val voiceResponse= VoiceAssistantActivity()
 
     override fun onStart() {
 //        processSettings(null)

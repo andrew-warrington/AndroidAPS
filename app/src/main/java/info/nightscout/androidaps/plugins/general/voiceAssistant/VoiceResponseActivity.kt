@@ -8,11 +8,10 @@ import info.nightscout.androidaps.logging.LTag
 import javax.inject.Inject
 
 class VoiceResponseActivity : NoSplashAppCompatActivity() {
-
+/*
     @Inject lateinit var aapsLogger: AAPSLogger
 
    fun messageToUser(message: String) {
-
 
        //external voice assistant must implement a receiver to speak these messages back to the user.
         //this is possible via Tasker on Android, for example.
@@ -24,4 +23,8 @@ class VoiceResponseActivity : NoSplashAppCompatActivity() {
         }
         aapsLogger.debug(LTag.VOICECOMMAND, String.format(resourceHelper.gs(R.string.voiceassistant_messagetouser), message))
     }
+*/
 }
+
+
+
