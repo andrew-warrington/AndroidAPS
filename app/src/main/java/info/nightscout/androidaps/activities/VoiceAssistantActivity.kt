@@ -15,13 +15,14 @@ import info.nightscout.androidaps.plugins.general.voiceAssistant.VoiceAssistantP
 import info.nightscout.androidaps.utils.resources.ResourceHelper
 import info.nightscout.androidaps.utils.sharedPreferences.SP
 import javax.inject.Inject
+import javax.inject.Singleton
 
+@Singleton
 class VoiceAssistantActivity : NoSplashAppCompatActivity() {
 
     @Inject lateinit var aapsLogger: AAPSLogger
     @Inject lateinit var voiceAssistantPlugin: VoiceAssistantPlugin
     @Inject lateinit var activePlugin: ActivePluginProvider
-    @Inject lateinit var sp: SP
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
