@@ -1,5 +1,6 @@
 package info.nightscout.androidaps.interfaces
 
+import android.content.Intent
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import dagger.android.HasAndroidInjector
@@ -106,6 +107,8 @@ abstract class PluginBase(
         return if (type == PluginType.PROFILE && pluginDescription.mainType == PluginType.PUMP) isEnabled(PluginType.PUMP) else false
     }
 
+    abstract fun sendBroadcast(intent: Intent)
+
     open fun specialEnableCondition(): Boolean {
         return true
     }
@@ -119,4 +122,5 @@ abstract class PluginBase(
     protected open fun onStateChange(type: PluginType?, oldState: State?, newState: State?) {}
     open fun preprocessPreferences(preferenceFragment: PreferenceFragmentCompat) {}
     open fun updatePreferenceSummary(pref: Preference) {}
+
 }
