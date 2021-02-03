@@ -14,7 +14,6 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 //TODO fix icon
 //load preferences at start
 
-import android.content.Context
 import android.content.Intent
 import dagger.android.HasAndroidInjector
 import info.nightscout.androidaps.Config
@@ -76,7 +75,6 @@ class VoiceAssistantPlugin @Inject constructor(
 
     var lastRemoteBolusTime: Long = 0
     var messages = ArrayList<String>()
-    var voiceAssistant= VoiceResponseActivity()
 
     override fun onStart() {
 //        processSettings(null)
@@ -281,10 +279,7 @@ class VoiceAssistantPlugin @Inject constructor(
 
     private fun userFeedback(message: String) {
 
-        Intent().also { intent ->
-            intent.setAction("info.nightscout.androidaps.USER_FEEDBACK")
-            intent.putExtra("message", message)
-            voiceAssistant.messageToUser(intent)
-        }
+    VoiceResponseActivity(message)
+
     }
 }
