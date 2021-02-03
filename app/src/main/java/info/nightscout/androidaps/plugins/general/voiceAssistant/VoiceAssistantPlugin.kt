@@ -29,8 +29,8 @@ import info.nightscout.androidaps.logging.LTag
 import info.nightscout.androidaps.plugins.aps.loop.LoopPlugin
 import info.nightscout.androidaps.plugins.bus.RxBusWrapper
 import info.nightscout.androidaps.plugins.configBuilder.ConstraintChecker
+import info.nightscout.androidaps.plugins.general.dataBroadcaster.DataBroadcastPlugin
 import info.nightscout.androidaps.plugins.general.smsCommunicator.otp.OneTimePassword
-import info.nightscout.androidaps.plugins.general.voiceAssistant.activities.VoiceResponseActivity
 import info.nightscout.androidaps.plugins.iob.iobCobCalculator.IobCobCalculatorPlugin
 import info.nightscout.androidaps.queue.Callback
 import info.nightscout.androidaps.utils.DateUtil
@@ -51,6 +51,7 @@ class VoiceAssistantPlugin @Inject constructor(
         resourceHelper: ResourceHelper,
         private val sp: SP,
         private val constraintChecker: ConstraintChecker,
+        private val dataBroadcastPlugin: DataBroadcastPlugin,
         private val rxBus: RxBusWrapper,
         private val profileFunction: ProfileFunction,
         private val fabricPrivacy: FabricPrivacy,
@@ -279,7 +280,11 @@ class VoiceAssistantPlugin @Inject constructor(
 
     private fun userFeedback(message: String) {
 
-    VoiceResponseActivity(message)
-
+//VoiceResponseActivity(message)
+        Intent().also {intent ->
+            intent.setAction("info.nightscout.androidaps.USER_FEEDBACK")
+            intent.putExtra("message", message)
+            dataBroadcastPlugin.voiceResponse(intent)
+        }
     }
 }

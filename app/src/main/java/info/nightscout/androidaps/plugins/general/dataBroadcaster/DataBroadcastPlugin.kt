@@ -208,4 +208,9 @@ class DataBroadcastPlugin @Inject constructor(
                 aapsLogger.debug(LTag.CORE, "Sending broadcast " + intent.action + " to: " + it)
             }
     }
+
+    fun voiceResponse(intent: Intent) {
+        //intent must include intent.setAction("info.nightscout.androidaps.USER_FEEDBACK" and intent.putExtra("message", message))
+        sendBroadcast(intent)
+    }
 }
