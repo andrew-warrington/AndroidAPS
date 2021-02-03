@@ -12,6 +12,8 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 //TODO fix icon
 //TODO load preferences at start
 //TODO Additional commands
+//TODO "slowly up" or similar for glucose answer
+//TODO rename "status"
 
 import android.content.Intent
 import android.content.Context
@@ -184,7 +186,21 @@ class VoiceAssistantPlugin @Inject constructor(
     }
 
     private fun processGlucose() {
-        userFeedback("Your glucose is " + iobCobCalculatorPlugin.actualBg() + profileFunction.getUnits())
+        val actualBG = iobCobCalculatorPlugin.actualBg()
+        val lastBG = iobCobCalculatorPlugin.lastBg()
+        var reply = ""
+        val units = profileFunction.getUnits()
+        if (actualBG != null) {
+            reply = resourceHelper.gs(R.string.sms_actualbg) + " " + actualBG.valueToUnitsToString(units)
+        } else if (lastBG != null) {
+            val agoMsec = System.currentTimeMillis() - lastBG.date
+            val agoMin = (agoMsec / 60.0 / 1000.0).toInt()
+            reply = resourceHelper.gs(R.string.sms_lastbg) + " " + lastBG.valueToUnitsToString(units) + " " + String.format(resourceHelper.gs(R.string.sms_minago), agoMin) + ", "
+        } else {
+            userFeedback("Could not get your most recent glucose reading.")
+            return
+        }
+        userFeedback("Your glucose is " + reply)
     }
 
     private fun calculateBolus(intent: Intent) {
