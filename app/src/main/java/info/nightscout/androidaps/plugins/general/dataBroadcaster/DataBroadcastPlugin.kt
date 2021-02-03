@@ -201,8 +201,6 @@ class DataBroadcastPlugin @Inject constructor(
 
     private fun sendBroadcast(intent: Intent) {
 
-        aapsLogger.debug(LTag.VOICECOMMAND, "Intent contains: " + intent.getStringExtra("message"))
-
         val receivers: List<ResolveInfo> = context.packageManager.queryBroadcastReceivers(intent, 0)
         for (resolveInfo in receivers)
             resolveInfo.activityInfo.packageName?.let {
@@ -210,15 +208,5 @@ class DataBroadcastPlugin @Inject constructor(
                 context.sendBroadcast(intent)
                 aapsLogger.debug(LTag.CORE, "Sending broadcast " + intent.action + " to: " + it)
             }
-    }
-
-    fun voiceResponse(bundle: Bundle) {
-
-        aapsLogger.debug(LTag.VOICECOMMAND, "Bundle contains: " + bundle!!.getString("message"))
-
-        sendBroadcast(
-            Intent(Intents.USER_FEEDBACK) // "info.nightscout.androidaps.USER_FEEDBACK"
-                .putExtras(bundle)
-        )
     }
 }

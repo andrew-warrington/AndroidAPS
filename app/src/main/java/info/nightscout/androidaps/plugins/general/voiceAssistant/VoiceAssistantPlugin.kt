@@ -7,12 +7,11 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 //TODO assess whether any permissions required in AndroidManifest
 //TODO move strings to strings.xml
 //TODO logic to enable certain features based on config (pump control, nsclient, APS)
-//TODO set up substitutions for Tasker using a, b, c
-//TODO tasker set up for new command format "add carbohydrates 25 grams now"
 //TODO write code for setting time for carbs
 //TODO write code for meal bolus
 //TODO fix icon
-//load preferences at start
+//TODO load preferences at start
+//TODO Additional commands
 
 import android.content.Intent
 import android.content.Context
@@ -30,8 +29,9 @@ import info.nightscout.androidaps.logging.LTag
 import info.nightscout.androidaps.plugins.aps.loop.LoopPlugin
 import info.nightscout.androidaps.plugins.bus.RxBusWrapper
 import info.nightscout.androidaps.plugins.configBuilder.ConstraintChecker
-// import info.nightscout.androidaps.plugins.general.dataBroadcaster.DataBroadcastPlugin
+import info.nightscout.androidaps.plugins.general.smsCommunicator.Sms
 import info.nightscout.androidaps.plugins.general.smsCommunicator.otp.OneTimePassword
+import info.nightscout.androidaps.plugins.iob.iobCobCalculator.GlucoseStatus
 import info.nightscout.androidaps.plugins.iob.iobCobCalculator.IobCobCalculatorPlugin
 import info.nightscout.androidaps.queue.Callback
 import info.nightscout.androidaps.services.Intents
@@ -54,17 +54,16 @@ class VoiceAssistantPlugin @Inject constructor(
         private val context: Context,
         private val sp: SP,
         private val constraintChecker: ConstraintChecker,
-//        private val dataBroadcastPlugin: DataBroadcastPlugin,
-        private val rxBus: RxBusWrapper,
+//        private val rxBus: RxBusWrapper,
         private val profileFunction: ProfileFunction,
-        private val fabricPrivacy: FabricPrivacy,
+//        private val fabricPrivacy: FabricPrivacy,
         private val activePlugin: ActivePluginProvider,
         private val commandQueue: CommandQueueProvider,
-        private val loopPlugin: LoopPlugin,
+//        private val loopPlugin: LoopPlugin,
         private val iobCobCalculatorPlugin: IobCobCalculatorPlugin,
-        private val xdripCalibrations: XdripCalibrations,
-        private var otp: OneTimePassword,
-        private val config: Config,
+//        private val xdripCalibrations: XdripCalibrations,
+//        private var otp: OneTimePassword,
+//        private val config: Config,
         private val dateUtil: DateUtil,
     ) : PluginBase(PluginDescription()
         .mainType(PluginType.GENERAL)
@@ -80,42 +79,16 @@ class VoiceAssistantPlugin @Inject constructor(
     var lastRemoteBolusTime: Long = 0
     var messages = ArrayList<String>()
 
-    override fun onStart() {
-//        processSettings(null)
-        super.onStart()
-//        disposable += rxBus
-//           .toObservable(EventPreferenceChange::class.java)
-//           .observeOn(Schedulers.io())
-//           .subscribe({ event: EventPreferenceChange? -> processSettings(event) }) { fabricPrivacy.logException(it) }
-    }
-
-//    override fun onCreate(savedInstanceState: Bundle?) {
-//        super.onCreate(savedInstanceState)
-//        aapsLogger.debug(LTag.VOICECOMMAND, "Google assistant command received")
-//        processIntent(intent)
-//        TODO add this code back in when the processSettings function is written
-//        disposable += rxBus
-//            .toObservable(EventPreferenceChange::class.java)
-//            .observeOn(Schedulers.io())
-//            .subscribe({ event: EventPreferenceChange? -> processSettings(event) }) { fabricPrivacy.logException(it) }
-//        finish()
-//    }
-
-//    override fun onDestroy() {
-//        disposable.clear()
-//        super.onStop()
-//    }
-
     fun processVoiceCommand(intent: Intent) {
 
         val assistantCommandsAllowed = sp.getBoolean(R.string.key_voiceassistant_commandsallowed, false)
 
         if (!isEnabled(PluginType.GENERAL)) {
-            userFeedback("The voice assistant plugin is disabled. Please enable it.")
+            userFeedback("The voice assistant plugin is disabled. Please enable in the Config Builder.")
             return
         }
         if (!assistantCommandsAllowed) {
-            userFeedback("The voice assistant plugin is not allowed. Please enable it.")
+            userFeedback("Voice commands are not allowed. Please enable them in Preferences.")
             return
         }
 /* TODO need code for some sort of security and/or identity check
@@ -125,12 +98,17 @@ class VoiceAssistantPlugin @Inject constructor(
             userFeedback("Request type not received. Aborting")
             return
         } else {
-            aapsLogger.debug(LTag.VOICECOMMAND, requestType)
             when (requestType) {
                 "carb"         ->
                     processCarbs(intent)
-                "bolus"         ->
+                "bolus"        ->
                     processBolus(intent)
+                "status"      ->
+                    processStatus()
+                "glucose"      ->
+                    processGlucose()
+                "calculate"    ->
+                    calculateBolus(intent)
             }
         }
     }
@@ -144,8 +122,8 @@ class VoiceAssistantPlugin @Inject constructor(
             return
         }
         val splitted = intent.getStringExtra("amount").split(Regex("\\s+")).toTypedArray()
-        var gramsRequest = SafeParse.stringToInt(splitted[0])
-        var grams = constraintChecker.applyCarbsConstraints(Constraint(gramsRequest)).value()
+        val gramsRequest = SafeParse.stringToInt(splitted[0])
+        val grams = constraintChecker.applyCarbsConstraints(Constraint(gramsRequest)).value()
         if (gramsRequest != grams) {
             userFeedback(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "carb", gramsRequest.toString(), grams.toString()))
             return
@@ -177,6 +155,40 @@ class VoiceAssistantPlugin @Inject constructor(
                 userFeedback(String.format(resourceHelper.gs(R.string.voiceassistant_carbsset), grams))
             }
         }
+    }
+
+    private fun processStatus() {
+        val actualBG = iobCobCalculatorPlugin.actualBg()
+        val lastBG = iobCobCalculatorPlugin.lastBg()
+        var reply = ""
+        val units = profileFunction.getUnits()
+        if (actualBG != null) {
+            reply = resourceHelper.gs(R.string.sms_actualbg) + " " + actualBG.valueToUnitsToString(units) + ", "
+        } else if (lastBG != null) {
+            val agoMsec = System.currentTimeMillis() - lastBG.date
+            val agoMin = (agoMsec / 60.0 / 1000.0).toInt()
+            reply = resourceHelper.gs(R.string.sms_lastbg) + " " + lastBG.valueToUnitsToString(units) + " " + String.format(resourceHelper.gs(R.string.sms_minago), agoMin) + ", "
+        }
+        val glucoseStatus = GlucoseStatus(injector).glucoseStatusData
+        if (glucoseStatus != null) reply += resourceHelper.gs(R.string.sms_delta) + " " + Profile.toUnitsString(glucoseStatus.delta, glucoseStatus.delta * Constants.MGDL_TO_MMOLL, units) + " " + units + ", "
+        activePlugin.activeTreatments.updateTotalIOBTreatments()
+        val bolusIob = activePlugin.activeTreatments.lastCalculationTreatments.round()
+        activePlugin.activeTreatments.updateTotalIOBTempBasals()
+        val basalIob = activePlugin.activeTreatments.lastCalculationTempBasals.round()
+        val cobInfo = iobCobCalculatorPlugin.getCobInfo(false, "SMS COB")
+        reply += (resourceHelper.gs(R.string.sms_iob) + " " + DecimalFormatter.to2Decimal(bolusIob.iob + basalIob.basaliob) + "U ("
+            + resourceHelper.gs(R.string.sms_bolus) + " " + DecimalFormatter.to2Decimal(bolusIob.iob) + "U "
+            + resourceHelper.gs(R.string.sms_basal) + " " + DecimalFormatter.to2Decimal(basalIob.basaliob) + "U), "
+            + resourceHelper.gs(R.string.cob) + ": " + cobInfo.generateCOBString())
+        userFeedback(reply)
+    }
+
+    private fun processGlucose() {
+        userFeedback("Your glucose is " + iobCobCalculatorPlugin.actualBg() + profileFunction.getUnits())
+    }
+
+    private fun calculateBolus(intent: Intent) {
+        return
     }
 
     private fun processBolus(intent: Intent) {
@@ -257,12 +269,9 @@ class VoiceAssistantPlugin @Inject constructor(
 
         messages.add(dateUtil.timeString(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + message + "</b><br>")
         aapsLogger.debug(LTag.VOICECOMMAND, message)
-/*
-        val bundle = bundleOf(
-            Pair("message", message),
-        )
-        dataBroadcastPlugin.voiceResponse(bundle)
-*/
+
+        //requires a 3rd party software such as Tasker to receive the intent with action "info.nightscout.androidaps.USER_FEEDBACK"
+        //and speak the message contained in the extras.
         context.sendBroadcast(
             Intent(Intents.USER_FEEDBACK) // "info.nightscout.androidaps.USER_FEEDBACK"
                 .putExtra("message", message)

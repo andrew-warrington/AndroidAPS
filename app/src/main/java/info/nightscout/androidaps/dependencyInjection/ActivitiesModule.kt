@@ -17,7 +17,6 @@ import info.nightscout.androidaps.plugins.pump.insight.activities.InsightPairing
 import info.nightscout.androidaps.plugins.pump.medtronic.dialog.MedtronicHistoryActivity
 import info.nightscout.androidaps.setupwizard.SetupWizardActivity
 import info.nightscout.androidaps.plugins.general.voiceAssistant.activities.VoiceAssistantActivity
-import info.nightscout.androidaps.plugins.general.voiceAssistant.activities.VoiceResponseActivity
 
 @Module
 @Suppress("unused")
@@ -43,5 +42,4 @@ abstract class ActivitiesModule {
     @ContributesAndroidInjector abstract fun contributesDefaultProfileActivity(): ProfileHelperActivity
     @ContributesAndroidInjector abstract fun contributesOpenHumansLoginActivity(): OpenHumansLoginActivity
     @ContributesAndroidInjector abstract fun contributesVoiceAssistantActivity(): VoiceAssistantActivity
-    @ContributesAndroidInjector abstract fun contributesVoiceResponseActivity(): VoiceResponseActivity
 }
