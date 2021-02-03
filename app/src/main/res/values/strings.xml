@@ -1393,5 +1393,6 @@
     <string name="voiceassistant_bolusdelivered">Bolus %1$.2f units delivered successfully</string>
     <string name="voiceassistant_mealbolusdelivered">Meal bolus %1$.2f units delivered successfully</string>
     <string name="voiceassistant_mealbolusdelivered_tt">Set target %1$s for %2$d minutes</string>
+    <string name="voiceassistant_bolusfailed">Bolus failed</string>
 
 </resources>
