@@ -258,6 +258,6 @@ class VoiceAssistantPlugin @Inject constructor(
             Pair("message", message),
             Pair("actionname", "info.nightscout.androidaps.USER_FEEDBACK")
         )
-        dataBroadcastPlugin.externalBroadcast(bundle)
+        dataBroadcastPlugin.voiceResponse(bundle)
     }
 }

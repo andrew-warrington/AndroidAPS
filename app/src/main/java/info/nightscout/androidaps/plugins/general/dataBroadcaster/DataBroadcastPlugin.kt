@@ -209,10 +209,14 @@ class DataBroadcastPlugin @Inject constructor(
             }
     }
 
-    fun voiceResponse(message: String, actionname: String) {
+    fun voiceResponse(bundle: Bundle) {
+
+        aapsLogger.debug(LTag.VOICECOMMAND, "Bundle contains: " + bundle!!.getString("actionname"))
+        aapsLogger.debug(LTag.VOICECOMMAND, "Bundle contains: " + bundle!!.getString("message"))
+
         Intent().also {intent ->
-            intent.setAction(actionname)
-            intent.putExtra("message", message)
+            intent.setAction(bundle!!.getString("actionname"))
+            intent.putExtra("message", bundle!!.getString("message"))
             sendBroadcast(intent)
         }
     }
