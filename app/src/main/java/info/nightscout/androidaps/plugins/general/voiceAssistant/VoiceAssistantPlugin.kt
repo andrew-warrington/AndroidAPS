@@ -15,6 +15,7 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 //load preferences at start
 
 import android.content.Intent
+import androidx.core.os.bundleOf
 import dagger.android.HasAndroidInjector
 import info.nightscout.androidaps.Config
 import info.nightscout.androidaps.Constants
@@ -115,20 +116,11 @@ class VoiceAssistantPlugin @Inject constructor(
             userFeedback("The voice assistant plugin is not allowed. Please enable it.")
             return
         }
-/* TODO need code like below linked to some sort of security and/or identity check
-        if (!isAllowedNumber(receivedSms.phoneNumber)) {
-            aapsLogger.debug(LTag.SMS, "Ignoring SMS from: " + receivedSms.phoneNumber + ". Sender not allowed")
-            receivedSms.ignored = true
-            messages.add(receivedSms)
-            rxBus.send(EventSmsCommunicatorUpdateGui())
-            return
-        }
+/* TODO need code for some sort of security and/or identity check
 */
         val requestType: String? = intent.getStringExtra("requesttype")
         if (requestType == null) {
-            val replyText = "Request type not received. Aborting"
-            messages.add(dateUtil.timeString(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + replyText + "</b><br>")
-            userFeedback(replyText)
+            userFeedback("Request type not received. Aborting")
             return
         } else {
             aapsLogger.debug(LTag.VOICECOMMAND, requestType)
@@ -146,24 +138,18 @@ class VoiceAssistantPlugin @Inject constructor(
         if (intent.getStringExtra("amount") != null) {
             aapsLogger.debug(LTag.VOICECOMMAND, "Processing carb request")
         } else {
-            val replyText = "Carb amount not received. Aborting."
-            userFeedback(replyText)
-            messages.add(dateUtil.timeString(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + replyText + "</b><br>")
+            userFeedback("Carb amount not received. Aborting.")
             return
         }
         val splitted = intent.getStringExtra("amount").split(Regex("\\s+")).toTypedArray()
         var gramsRequest = SafeParse.stringToInt(splitted[0])
         var grams = constraintChecker.applyCarbsConstraints(Constraint(gramsRequest)).value()
         if (gramsRequest != grams) {
-            val replyText = String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "carb", gramsRequest.toString(), grams.toString())
-            userFeedback(replyText)
-            messages.add(dateUtil.timeString(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + replyText + "</b><br>")
+            userFeedback(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "carb", gramsRequest.toString(), grams.toString()))
             return
         }
         if (grams == 0) {
-            val replyText = "Zero grams requested. Aborting."
-            userFeedback(replyText)
-            messages.add(dateUtil.timeString(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + replyText + "</b><br>")
+            userFeedback("Zero grams requested. Aborting.")
             return
         } else {
             val carbslog = String.format(resourceHelper.gs(R.string.voiceassistant_carbslog), grams, DateUtil.now())
@@ -175,21 +161,18 @@ class VoiceAssistantPlugin @Inject constructor(
             if (activePlugin.activePump.pumpDescription.storesCarbInfo) {
                 commandQueue.bolus(detailedBolusInfo, object : Callback() {
                     override fun run() {
-                        var replyText: String
+                        val replyText: String
                         if (result.success) {
                             replyText = String.format(resourceHelper.gs(R.string.voiceassistant_carbsset), grams)
                         } else {
                             replyText = String.format(resourceHelper.gs(R.string.voiceassistant_carbsfailed), grams)
                         }
                         userFeedback(replyText)
-                        messages.add(dateUtil.timeString(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + replyText + "</b><br>")
                     }
                 })
             } else {
                 activePlugin.activeTreatments.addToHistoryTreatment(detailedBolusInfo, true)
-                var replyText = String.format(resourceHelper.gs(R.string.voiceassistant_carbsset), grams)
-                userFeedback(replyText)
-                messages.add(dateUtil.timeString(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + replyText + "</b><br>")
+                userFeedback(String.format(resourceHelper.gs(R.string.voiceassistant_carbsset), grams))
             }
         }
     }
@@ -201,9 +184,7 @@ class VoiceAssistantPlugin @Inject constructor(
         if (intent.getStringExtra("units") != null && intent.getStringExtra("meal") != null) {
             aapsLogger.debug(LTag.VOICECOMMAND, "Processing bolus request")
         } else {
-            val replyText = "Bolus request received was not complete. Aborting"
-            userFeedback(replyText)
-            messages.add(dateUtil.timeString(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + replyText + "</b><br>")
+            userFeedback("Bolus request received was not complete. Aborting")
             return
         }
 
@@ -211,9 +192,7 @@ class VoiceAssistantPlugin @Inject constructor(
         val bolusRequest = SafeParse.stringToDouble(splitted[0])
         val bolus = constraintChecker.applyBolusConstraints(Constraint(bolusRequest)).value()
         if (bolusRequest != bolus) {
-            val replyText = String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "bolus", bolusRequest.toString(), bolus.toString())
-            userFeedback(replyText)
-            messages.add(dateUtil.timeString(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + replyText + "</b><br>")
+            userFeedback(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "bolus", bolusRequest.toString(), bolus.toString()))
             return
         }
         splitted = intent.getStringExtra("meal").split(Regex("\\s+")).toTypedArray()
@@ -259,27 +238,26 @@ class VoiceAssistantPlugin @Inject constructor(
                                     }
                                 }
                                 userFeedback(replyText)
-                                messages.add(dateUtil.timeString(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + replyText + "</b><br>")
                             }
                             else {
-                                var replyText = resourceHelper.gs(R.string.voiceassistant_bolusfailed)
-//                              replyText += "\n" + activePlugin.activePump.shortStatus(true)
-                                userFeedback(replyText)
-                                messages.add(dateUtil.timeString(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + replyText + "</b><br>")
+                                userFeedback(resourceHelper.gs(R.string.voiceassistant_bolusfailed))
                             }
                         }
                     })
                 }
             })
         } else {
-            val replyText = "Zero units requested. Aborting."
-            userFeedback(replyText)
-            messages.add(dateUtil.timeString(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + replyText + "</b><br>")
+            userFeedback("Zero units requested. Aborting.")
         }
     }
 
     private fun userFeedback(message: String) {
 
-        dataBroadcastPlugin.voiceResponse(message, "info.nightscout.androidaps.USER_FEEDBACK")
+        messages.add(dateUtil.timeString(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + message + "</b><br>")
+        val bundle = bundleOf(
+            Pair("message", message),
+            Pair("actionname", "info.nightscout.androidaps.USER_FEEDBACK")
+        )
+        dataBroadcastPlugin.externalBroadcast(bundle)
     }
 }
