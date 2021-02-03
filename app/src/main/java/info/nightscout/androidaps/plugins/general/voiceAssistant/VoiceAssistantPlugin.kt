@@ -15,7 +15,7 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 //load preferences at start
 
 import android.content.Intent
-import androidx.core.os.bundleOf
+import android.content.Context
 import dagger.android.HasAndroidInjector
 import info.nightscout.androidaps.Config
 import info.nightscout.androidaps.Constants
@@ -30,10 +30,11 @@ import info.nightscout.androidaps.logging.LTag
 import info.nightscout.androidaps.plugins.aps.loop.LoopPlugin
 import info.nightscout.androidaps.plugins.bus.RxBusWrapper
 import info.nightscout.androidaps.plugins.configBuilder.ConstraintChecker
-import info.nightscout.androidaps.plugins.general.dataBroadcaster.DataBroadcastPlugin
+// import info.nightscout.androidaps.plugins.general.dataBroadcaster.DataBroadcastPlugin
 import info.nightscout.androidaps.plugins.general.smsCommunicator.otp.OneTimePassword
 import info.nightscout.androidaps.plugins.iob.iobCobCalculator.IobCobCalculatorPlugin
 import info.nightscout.androidaps.queue.Callback
+import info.nightscout.androidaps.services.Intents
 import info.nightscout.androidaps.utils.DateUtil
 import info.nightscout.androidaps.utils.DecimalFormatter
 import info.nightscout.androidaps.utils.FabricPrivacy
@@ -50,9 +51,10 @@ class VoiceAssistantPlugin @Inject constructor(
         injector: HasAndroidInjector,
         aapsLogger: AAPSLogger,
         resourceHelper: ResourceHelper,
+        private val context: Context,
         private val sp: SP,
         private val constraintChecker: ConstraintChecker,
-        private val dataBroadcastPlugin: DataBroadcastPlugin,
+//        private val dataBroadcastPlugin: DataBroadcastPlugin,
         private val rxBus: RxBusWrapper,
         private val profileFunction: ProfileFunction,
         private val fabricPrivacy: FabricPrivacy,
@@ -254,9 +256,16 @@ class VoiceAssistantPlugin @Inject constructor(
     private fun userFeedback(message: String) {
 
         messages.add(dateUtil.timeString(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + message + "</b><br>")
+        aapsLogger.debug(LTag.VOICECOMMAND, message)
+/*
         val bundle = bundleOf(
             Pair("message", message),
         )
         dataBroadcastPlugin.voiceResponse(bundle)
+*/
+        context.sendBroadcast(
+            Intent(Intents.USER_FEEDBACK) // "info.nightscout.androidaps.USER_FEEDBACK"
+                .putExtra("message", message)
+        )
     }
 }
