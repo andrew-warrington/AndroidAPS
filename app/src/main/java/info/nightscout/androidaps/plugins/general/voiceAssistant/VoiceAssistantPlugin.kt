@@ -262,7 +262,7 @@ class VoiceAssistantPlugin @Inject constructor(
                                 messages.add(replyText)
                             }
                             else {
-                                var replyText = resourceHelper.gs(R.string.smscommunicator_bolusfailed)
+                                var replyText = resourceHelper.gs(R.string.voiceassistant_bolusfailed)
 //                              replyText += "\n" + activePlugin.activePump.shortStatus(true)
                                 userFeedback(replyText)
                                 messages.add(replyText)
