@@ -20,7 +20,6 @@ import dagger.android.HasAndroidInjector
 import info.nightscout.androidaps.Config
 import info.nightscout.androidaps.Constants
 import info.nightscout.androidaps.R
-import info.nightscout.androidaps.activities.VoiceAssistantActivity
 import info.nightscout.androidaps.data.DetailedBolusInfo
 import info.nightscout.androidaps.data.Profile
 import info.nightscout.androidaps.db.Source
@@ -32,6 +31,7 @@ import info.nightscout.androidaps.plugins.aps.loop.LoopPlugin
 import info.nightscout.androidaps.plugins.bus.RxBusWrapper
 import info.nightscout.androidaps.plugins.configBuilder.ConstraintChecker
 import info.nightscout.androidaps.plugins.general.smsCommunicator.otp.OneTimePassword
+import info.nightscout.androidaps.plugins.general.voiceAssistant.activities.VoiceResponseActivity
 import info.nightscout.androidaps.plugins.iob.iobCobCalculator.IobCobCalculatorPlugin
 import info.nightscout.androidaps.queue.Callback
 import info.nightscout.androidaps.utils.DateUtil
@@ -76,7 +76,7 @@ class VoiceAssistantPlugin @Inject constructor(
 
     var lastRemoteBolusTime: Long = 0
     var messages = ArrayList<String>()
-    var voiceAssistant= VoiceAssistantActivity()
+    var voiceAssistant= VoiceResponseActivity()
 
     override fun onStart() {
 //        processSettings(null)
@@ -286,7 +286,5 @@ class VoiceAssistantPlugin @Inject constructor(
             intent.putExtra("message", message)
             voiceAssistant.messageToUser(intent)
         }
-
     }
-
 }

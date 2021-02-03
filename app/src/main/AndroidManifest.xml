@@ -259,7 +259,7 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".activities.VoiceAssistantActivity"
+            android:name=".plugins.general.voiceAssistant.activities.VoiceAssistantActivity"
             android:theme="@android:style/Theme.NoDisplay"
             android:enabled="true"
             android:exported="true">
