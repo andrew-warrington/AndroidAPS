@@ -209,8 +209,11 @@ class DataBroadcastPlugin @Inject constructor(
             }
     }
 
-    fun voiceResponse(intent: Intent) {
-        //intent must include intent.setAction("info.nightscout.androidaps.USER_FEEDBACK" and intent.putExtra("message", message))
-        sendBroadcast(intent)
+    fun voiceResponse(message: String, actionname: String) {
+        Intent().also {intent ->
+            intent.setAction(actionname)
+            intent.putExtra("message", message)
+            sendBroadcast(intent)
+        }
     }
 }

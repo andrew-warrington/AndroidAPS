@@ -50,18 +50,12 @@ class VoiceAssistantFragment : DaggerFragment() {
         }
 
         fun updateGui() {
-//            class CustomComparator : Comparator<Sms> {
-//                override fun compare(object1: Sms, object2: Sms): Int {
-//                    return (object1.date - object2.date).toInt()
-//                }
-//            }
             Collections.sort(voiceAssistantPlugin.messages)
             val messagesToShow = 40
             val start = max(0, voiceAssistantPlugin.messages.size - messagesToShow)
             var logText = ""
             for (x in start until voiceAssistantPlugin.messages.size) {
-                val voicecommand = voiceAssistantPlugin.messages[x]
-                logText += dateUtil.timeString(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + voicecommand + "</b><br>"
+                logText += voiceAssistantPlugin.messages[x]
             }
             voiceassistant_log?.text = HtmlHelper.fromHtml(logText)
         }
