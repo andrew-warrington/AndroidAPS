@@ -256,7 +256,6 @@ class VoiceAssistantPlugin @Inject constructor(
         messages.add(dateUtil.timeString(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + message + "</b><br>")
         val bundle = bundleOf(
             Pair("message", message),
-            Pair("actionname", "info.nightscout.androidaps.USER_FEEDBACK")
         )
         dataBroadcastPlugin.voiceResponse(bundle)
     }

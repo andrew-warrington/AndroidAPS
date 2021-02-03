@@ -37,4 +37,7 @@ public interface Intents {
 
     // Broadcast status
     String AAPS_BROADCAST = "info.nightscout.androidaps.status";
+
+    // For voice responses
+    String USER_FEEDBACK = "info.nightscout.androidaps.USER_FEEDBACK";
 }
