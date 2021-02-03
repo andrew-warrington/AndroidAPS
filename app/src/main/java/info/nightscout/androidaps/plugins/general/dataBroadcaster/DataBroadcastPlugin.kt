@@ -200,6 +200,10 @@ class DataBroadcastPlugin @Inject constructor(
     }
 
     private fun sendBroadcast(intent: Intent) {
+
+        aapsLogger.debug(LTag.VOICECOMMAND, "Intent contains: " + intent.getStringExtra("actionname"))
+        aapsLogger.debug(LTag.VOICECOMMAND, "Intent contains: " + intent.getStringExtra("message"))
+
         val receivers: List<ResolveInfo> = context.packageManager.queryBroadcastReceivers(intent, 0)
         for (resolveInfo in receivers)
             resolveInfo.activityInfo.packageName?.let {
