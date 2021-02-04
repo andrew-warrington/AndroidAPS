@@ -3,7 +3,6 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 // Receives intents from an external voice assistant and forwards to the VoiceAssistantPlugin
 // As of Jan 2021 recommend voice assistant integration via Tasker and AutoVoice apps on Android, as these work with both Google and Alexa
 
-//TODO ensure when two or more phones with AAPS can hear the command, only the correct one processes the request (patient identifier)
 //TODO assess whether any permissions required in AndroidManifest
 //TODO move strings to strings.xml
 //TODO logic to enable certain features based on config (pump control, nsclient, APS)
@@ -103,7 +102,7 @@ class VoiceAssistantPlugin @Inject constructor(
 
         if (identifierPinRequired) {
             if (!identifierMatch(spokenWordArray)) {
-                userFeedback("I could not match your identifier pin. Try again?")
+                userFeedback("I could not understand the patient name. Try again?")
                 return
             }
         }
@@ -309,9 +308,9 @@ class VoiceAssistantPlugin @Inject constructor(
     private fun identifierMatch(wordArray: Array<String>): Boolean {
 
         var returnCode = false
-        val patientName = sp.getString(R.string.key_patient_name, "")
+        val patientName = sp.getString(R.string.key_patient_name, "").toUpperCase()
         for (x in 0 until wordArray.size) {
-            if (wordArray[x] == patientName) returnCode = true
+            if (wordArray[x].toUpperCase() == patientName) returnCode = true
         }
         return returnCode
     }
