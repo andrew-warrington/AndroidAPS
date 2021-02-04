@@ -83,11 +83,13 @@ class VoiceAssistantPlugin @Inject constructor(
 
     var lastRemoteBolusTime: Long = 0
     var messages = ArrayList<String>()
+    var spokenCommand = ""
+    lateinit var spokenCommandArray: Array<String>
 
     fun processVoiceCommand(intent: Intent) {
 
         val assistantCommandsAllowed = sp.getBoolean(R.string.key_voiceassistant_commandsallowed, false)
-        val identifierPinRequired = sp.getBoolean(R.string.key_voiceassistant_requireidentifier, true)
+        val identifierRequired = sp.getBoolean(R.string.key_voiceassistant_requireidentifier, true)
 
         if (!isEnabled(PluginType.GENERAL)) {
             userFeedback("The voice assistant plugin is disabled. Please enable in the Config Builder.")
@@ -98,10 +100,15 @@ class VoiceAssistantPlugin @Inject constructor(
             return
         }
 
-        val spokenWordArray: Array<String> = intent.getStringArrayExtra("wordarray")
-
-        if (identifierPinRequired) {
-            if (!identifierMatch(spokenWordArray)) {
+        if (identifierRequired) {
+            if (intent.getStringExtra("command") != null) {
+                spokenCommand = intent.getStringExtra("command")
+                spokenCommandArray = spokenCommand.split(Regex("\\s+")).toTypedArray()
+            } else {
+                userFeedback("I did receive the patient name. Try again?")
+                return
+            }
+            if (!identifierMatch(spokenCommandArray)) {
                 userFeedback("I could not understand the patient name. Try again?")
                 return
             }
