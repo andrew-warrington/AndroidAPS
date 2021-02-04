@@ -9,10 +9,11 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 //TODO write code for setting time for carbs
 //TODO write code for meal bolus
 //TODO fix icon
-//TODO load preferences at start
 //TODO Additional commands
 //TODO "slowly up" or similar for glucose answer
 //TODO rename "status"
+//TODO onPreferenceChange listener
+//TODO fix bug in matching patient name
 
 import android.content.Intent
 import android.content.Context
@@ -88,24 +89,21 @@ class VoiceAssistantPlugin @Inject constructor(
 
     fun processVoiceCommand(intent: Intent) {
 
-        val assistantCommandsAllowed = sp.getBoolean(R.string.key_voiceassistant_commandsallowed, false)
-        val identifierRequired = sp.getBoolean(R.string.key_voiceassistant_requireidentifier, true)
-
         if (!isEnabled(PluginType.GENERAL)) {
             userFeedback("The voice assistant plugin is disabled. Please enable in the Config Builder.")
             return
         }
-        if (!assistantCommandsAllowed) {
+        if (!sp.getBoolean(R.string.key_voiceassistant_commandsallowed, false)) {
             userFeedback("Voice commands are not allowed. Please enable them in Preferences.")
             return
         }
 
-        if (identifierRequired) {
+        if (sp.getBoolean(R.string.key_voiceassistant_requireidentifier, true)) {
             if (intent.getStringExtra("command") != null) {
                 spokenCommand = intent.getStringExtra("command")
                 spokenCommandArray = spokenCommand.split(Regex("\\s+")).toTypedArray()
             } else {
-                userFeedback("I did receive the patient name. Try again?")
+                userFeedback("I did not receive the patient name. Try again?")
                 return
             }
             if (!identifierMatch(spokenCommandArray)) {
@@ -316,7 +314,9 @@ class VoiceAssistantPlugin @Inject constructor(
 
         var returnCode = false
         val patientName = sp.getString(R.string.key_patient_name, "").toUpperCase()
+        aapsLogger.debug(LTag.VOICECOMMAND, patientName)
         for (x in 0 until wordArray.size) {
+            aapsLogger.debug(LTag.VOICECOMMAND, wordArray[x])
             if (wordArray[x].toUpperCase() == patientName) returnCode = true
         }
         return returnCode
