@@ -17,6 +17,9 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 
 import android.content.Intent
 import android.content.Context
+import androidx.preference.EditTextPreference
+import androidx.preference.Preference
+import androidx.preference.PreferenceFragmentCompat
 import dagger.android.HasAndroidInjector
 import info.nightscout.androidaps.Config
 import info.nightscout.androidaps.Constants
@@ -44,6 +47,7 @@ import info.nightscout.androidaps.utils.SafeParse
 import info.nightscout.androidaps.utils.XdripCalibrations
 import info.nightscout.androidaps.utils.resources.ResourceHelper
 import info.nightscout.androidaps.utils.sharedPreferences.SP
+import info.nightscout.androidaps.utils.textValidator.ValidatingEditTextPreference
 import java.util.ArrayList
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -84,6 +88,7 @@ class VoiceAssistantPlugin @Inject constructor(
     fun processVoiceCommand(intent: Intent) {
 
         val assistantCommandsAllowed = sp.getBoolean(R.string.key_voiceassistant_commandsallowed, false)
+        val identifierPinRequired = sp.getBoolean(R.string.key_voiceassistant_requireidentifier, true)
 
         if (!isEnabled(PluginType.GENERAL)) {
             userFeedback("The voice assistant plugin is disabled. Please enable in the Config Builder.")
@@ -93,8 +98,16 @@ class VoiceAssistantPlugin @Inject constructor(
             userFeedback("Voice commands are not allowed. Please enable them in Preferences.")
             return
         }
-/* TODO need code for some sort of security and/or identity check
-*/
+
+        val spokenWordArray: Array<String> = intent.getStringArrayExtra("wordarray")
+
+        if (identifierPinRequired) {
+            if (!identifierMatch(spokenWordArray)) {
+                userFeedback("I could not match your identifier pin. Try again?")
+                return
+            }
+        }
+
         val requestType: String? = intent.getStringExtra("requesttype")
         if (requestType == null) {
             userFeedback("Request type not received. Aborting")
@@ -191,16 +204,15 @@ class VoiceAssistantPlugin @Inject constructor(
         var reply = ""
         val units = profileFunction.getUnits()
         if (actualBG != null) {
-            reply = resourceHelper.gs(R.string.sms_actualbg) + " " + actualBG.valueToUnitsToString(units)
+            reply = "Your current sensor glucose reading is " + actualBG.valueToUnitsToString(units) + " " + units
         } else if (lastBG != null) {
             val agoMsec = System.currentTimeMillis() - lastBG.date
             val agoMin = (agoMsec / 60.0 / 1000.0).toInt()
-            reply = resourceHelper.gs(R.string.sms_lastbg) + " " + lastBG.valueToUnitsToString(units) + " " + String.format(resourceHelper.gs(R.string.sms_minago), agoMin) + ", "
+            reply = "Your last sensor glucose reading was " + " " + lastBG.valueToUnitsToString(units) + " " + units + ", " + String.format(resourceHelper.gs(R.string.sms_minago), agoMin) + " minutes ago."
         } else {
-            userFeedback("Could not get your most recent glucose reading.")
-            return
+            reply = "Could not get your most recent glucose reading."
         }
-        userFeedback("Your glucose is " + reply)
+        userFeedback(reply)
     }
 
     private fun calculateBolus(intent: Intent) {
@@ -292,5 +304,15 @@ class VoiceAssistantPlugin @Inject constructor(
             Intent(Intents.USER_FEEDBACK) // "info.nightscout.androidaps.USER_FEEDBACK"
                 .putExtra("message", message)
         )
+    }
+
+    private fun identifierMatch(wordArray: Array<String>): Boolean {
+
+        var returnCode = false
+        val patientName = sp.getString(R.string.key_patient_name, "")
+        for (x in 0 until wordArray.size) {
+            if (wordArray[x] == patientName) returnCode = true
+        }
+        return returnCode
     }
 }

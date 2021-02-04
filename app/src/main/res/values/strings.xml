@@ -1394,5 +1394,8 @@
     <string name="voiceassistant_mealbolusdelivered">Meal bolus %1$.2f units delivered successfully</string>
     <string name="voiceassistant_mealbolusdelivered_tt">Set target %1$s for %2$d minutes</string>
     <string name="voiceassistant_bolusfailed">Bolus failed</string>
+    <string name="key_voiceassistant_requireidentifier" translatable="false">key_voiceassistant_requireidentifier</string>
+    <string name="voiceassistant_requireidentifier_summary">Speak the patient\'s name with the command to ensure it goes to the right person. Set patient name in General preferences.</string>
+    <string name="voiceassistant_requireidentifier">Require patient name (recommended)</string>
 
 </resources>

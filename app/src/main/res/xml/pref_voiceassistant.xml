@@ -12,6 +12,12 @@
             android:key="@string/key_voiceassistant_commandsallowed"
             android:title="@string/voiceassistant_commandsallowed" />
 
+        <SwitchPreference
+            android:defaultValue="true"
+            android:key="@string/key_voiceassistant_requireidentifier"
+            android:summary="@string/voiceassistant_requireidentifier_summary"
+            android:title="@string/voiceassistant_requireidentifier" />
+
     </PreferenceCategory>
 
 </androidx.preference.PreferenceScreen>
