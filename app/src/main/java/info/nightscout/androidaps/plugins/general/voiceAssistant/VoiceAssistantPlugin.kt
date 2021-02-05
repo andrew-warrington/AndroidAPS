@@ -13,13 +13,9 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 //TODO "slowly up" or similar for glucose answer
 //TODO rename "status"
 //TODO onPreferenceChange listener
-//TODO fix bug in matching patient name
 
 import android.content.Intent
 import android.content.Context
-import androidx.preference.EditTextPreference
-import androidx.preference.Preference
-import androidx.preference.PreferenceFragmentCompat
 import dagger.android.HasAndroidInjector
 import info.nightscout.androidaps.Config
 import info.nightscout.androidaps.Constants
@@ -34,8 +30,6 @@ import info.nightscout.androidaps.logging.LTag
 import info.nightscout.androidaps.plugins.aps.loop.LoopPlugin
 import info.nightscout.androidaps.plugins.bus.RxBusWrapper
 import info.nightscout.androidaps.plugins.configBuilder.ConstraintChecker
-import info.nightscout.androidaps.plugins.general.smsCommunicator.Sms
-import info.nightscout.androidaps.plugins.general.smsCommunicator.otp.OneTimePassword
 import info.nightscout.androidaps.plugins.iob.iobCobCalculator.GlucoseStatus
 import info.nightscout.androidaps.plugins.iob.iobCobCalculator.IobCobCalculatorPlugin
 import info.nightscout.androidaps.queue.Callback
@@ -47,7 +41,6 @@ import info.nightscout.androidaps.utils.SafeParse
 import info.nightscout.androidaps.utils.XdripCalibrations
 import info.nightscout.androidaps.utils.resources.ResourceHelper
 import info.nightscout.androidaps.utils.sharedPreferences.SP
-import info.nightscout.androidaps.utils.textValidator.ValidatingEditTextPreference
 import java.util.ArrayList
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -129,11 +122,11 @@ class VoiceAssistantPlugin @Inject constructor(
                 "status"      ->
                     processStatus()
                 "glucose"      ->
-                    processGlucose()
+                    userFeedback(processGlucose())
                 "calculate"    ->
                     calculateBolus(intent)
                 "quiet"     ->
-                    userFeedback(" ") //this will stop Google from speaking additional messages such as "command sent"
+                    userFeedback("Ok.") //this will stop Google from eating up time by saying "command sent" and repeating the command.
             }
     }
 
@@ -182,32 +175,31 @@ class VoiceAssistantPlugin @Inject constructor(
     }
 
     private fun processStatus() {
-        val actualBG = iobCobCalculatorPlugin.actualBg()
-        val lastBG = iobCobCalculatorPlugin.lastBg()
-        var reply = ""
-        val units = profileFunction.getUnits()
-        if (actualBG != null) {
-            reply = resourceHelper.gs(R.string.sms_actualbg) + " " + actualBG.valueToUnitsToString(units) + ", "
-        } else if (lastBG != null) {
-            val agoMsec = System.currentTimeMillis() - lastBG.date
-            val agoMin = (agoMsec / 60.0 / 1000.0).toInt()
-            reply = resourceHelper.gs(R.string.sms_lastbg) + " " + lastBG.valueToUnitsToString(units) + " " + String.format(resourceHelper.gs(R.string.sms_minago), agoMin) + ", "
+        var detailedStatus = false
+        if (fullCommandReceived) {
+            for (x in 0 until spokenCommandArray.size) {
+                aapsLogger.debug(LTag.VOICECOMMAND, "Command word " + x + " is " + spokenCommandArray[x])
+                if (spokenCommandArray[x].toUpperCase() == "DETAIL") detailedStatus = true
+            }
         }
+        val units = profileFunction.getUnits()
+        var reply = processGlucose()
         val glucoseStatus = GlucoseStatus(injector).glucoseStatusData
-        if (glucoseStatus != null) reply += resourceHelper.gs(R.string.sms_delta) + " " + Profile.toUnitsString(glucoseStatus.delta, glucoseStatus.delta * Constants.MGDL_TO_MMOLL, units) + " " + units + ", "
+        if (glucoseStatus != null) reply += "the delta is " + Profile.toUnitsString(glucoseStatus.delta, glucoseStatus.delta * Constants.MGDL_TO_MMOLL, units) + " " + units + ", "
         activePlugin.activeTreatments.updateTotalIOBTreatments()
         val bolusIob = activePlugin.activeTreatments.lastCalculationTreatments.round()
         activePlugin.activeTreatments.updateTotalIOBTempBasals()
         val basalIob = activePlugin.activeTreatments.lastCalculationTempBasals.round()
-        val cobInfo = iobCobCalculatorPlugin.getCobInfo(false, "SMS COB")
-        reply += (resourceHelper.gs(R.string.sms_iob) + " " + DecimalFormatter.to2Decimal(bolusIob.iob + basalIob.basaliob) + "U ("
-            + resourceHelper.gs(R.string.sms_bolus) + " " + DecimalFormatter.to2Decimal(bolusIob.iob) + "U "
-            + resourceHelper.gs(R.string.sms_basal) + " " + DecimalFormatter.to2Decimal(basalIob.basaliob) + "U), "
-            + resourceHelper.gs(R.string.cob) + ": " + cobInfo.generateCOBString())
+        val cobInfo = iobCobCalculatorPlugin.getCobInfo(false, "Voice COB")
+        reply += "The insulin on board is " + DecimalFormatter.to2Decimal(bolusIob.iob + basalIob.basaliob) + " units."
+        if (detailedStatus) {
+            reply += "The bolus IOB is " + DecimalFormatter.to2Decimal(bolusIob.iob) + " units, and the basal IOB is " + " " + DecimalFormatter.to2Decimal(basalIob.basaliob) + "units."
+        }
+        reply += "The carb on board is " + cobInfo.generateCOBString()
         userFeedback(reply)
     }
 
-    private fun processGlucose() {
+    private fun processGlucose(): String {
         val actualBG = iobCobCalculatorPlugin.actualBg()
         val lastBG = iobCobCalculatorPlugin.lastBg()
         var reply = ""
@@ -219,9 +211,9 @@ class VoiceAssistantPlugin @Inject constructor(
             val agoMin = (agoMsec / 60.0 / 1000.0).toInt()
             reply = "Your last sensor glucose reading was " + " " + lastBG.valueToUnitsToString(units) + " " + units + ", " + String.format(resourceHelper.gs(R.string.sms_minago), agoMin) + " minutes ago."
         } else {
-            reply = "Could not get your most recent glucose reading."
+            reply = "I could not get your most recent glucose reading."
         }
-        userFeedback(reply)
+        return reply
     }
 
     private fun calculateBolus(intent: Intent) {
@@ -321,7 +313,7 @@ class VoiceAssistantPlugin @Inject constructor(
         val patientName = sp.getString(R.string.key_patient_name, "").toUpperCase()
         aapsLogger.debug(LTag.VOICECOMMAND, patientName)
         for (x in 0 until wordArray.size) {
-            aapsLogger.debug(LTag.VOICECOMMAND, "Command word " + x + "is " + wordArray[x])
+            aapsLogger.debug(LTag.VOICECOMMAND, "Command word " + x + " is " + wordArray[x])
             if (wordArray[x].toUpperCase() == patientName) returnCode = true
         }
         return returnCode
