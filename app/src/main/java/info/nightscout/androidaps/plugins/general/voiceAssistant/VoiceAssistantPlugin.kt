@@ -7,11 +7,8 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 //TODO move strings to strings.xml
 //TODO logic to enable certain features based on config (pump control, nsclient, APS)
 //TODO write code for setting time for carbs
-//TODO write code for meal bolus
 //TODO fix icon
 //TODO Additional commands
-//TODO "slowly up" or similar for glucose answer
-//TODO rename "status"
 //TODO onPreferenceChange listener
 
 import android.content.Intent
@@ -41,7 +38,7 @@ import info.nightscout.androidaps.utils.SafeParse
 import info.nightscout.androidaps.utils.XdripCalibrations
 import info.nightscout.androidaps.utils.resources.ResourceHelper
 import info.nightscout.androidaps.utils.sharedPreferences.SP
-import java.util.ArrayList
+import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -182,7 +179,7 @@ class VoiceAssistantPlugin @Inject constructor(
             for (x in 0 until spokenCommandArray.size) {
 
                 aapsLogger.debug(LTag.VOICECOMMAND, "Command word " + x + " is " + spokenCommandArray[x])
-                when (spokenCommandArray[x].toUpperCase()) {
+                when (spokenCommandArray[x].toUpperCase(Locale.ROOT)) {
                     "DETAIL"         ->             //need a regex here
                         detailedStatus = true
                     "DETAILED"         ->
@@ -329,7 +326,7 @@ class VoiceAssistantPlugin @Inject constructor(
         var meal = false
         for (x in 0 until spokenCommandArray.size) {
             aapsLogger.debug(LTag.VOICECOMMAND, "Command word " + x + " is " + spokenCommandArray[x])
-            word = spokenCommandArray[x].toUpperCase()
+            word = spokenCommandArray[x].toUpperCase(Locale.ROOT)
             if (word == "MEAL" || word == "MEALS") meal = true
         }
         if (bolus > 0.0) {
@@ -404,12 +401,12 @@ class VoiceAssistantPlugin @Inject constructor(
     private fun patientMatch(wordArray: Array<String>): Boolean {
 
         var returnCode = false
-        val patientName = sp.getString(R.string.key_patient_name, "").toUpperCase()
-        var word = ""
+        val patientName = sp.getString(R.string.key_patient_name, "").toUpperCase(Locale.ROOT)
+        var word: String
         aapsLogger.debug(LTag.VOICECOMMAND, patientName)
         for (x in 0 until wordArray.size) {
             aapsLogger.debug(LTag.VOICECOMMAND, "Command word " + x + " is " + wordArray[x])
-            word = wordArray[x].toUpperCase()
+            word = wordArray[x].toUpperCase(Locale.ROOT)
             if (word == patientName || word == patientName + "S" || word == patientName + "'S") returnCode = true
             // above ^^ accept spoken name's possessive form, including in case of poor grammar e.g. "glucose for John" or "John's glucose" or "Johns glucose"
         }
@@ -418,7 +415,7 @@ class VoiceAssistantPlugin @Inject constructor(
 
     private fun convertToDigit(string: String): String {
         var output = string
-        when (output.toUpperCase()) {
+        when (output.toUpperCase(Locale.ROOT)) {
             "ZERO" -> output = "0"
             "ONE" -> output = "1"
             "TWO" -> output = "2"
