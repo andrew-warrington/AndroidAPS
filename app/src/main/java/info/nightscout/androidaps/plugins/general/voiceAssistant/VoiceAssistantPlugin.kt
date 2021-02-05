@@ -84,7 +84,7 @@ class VoiceAssistantPlugin @Inject constructor(
 
     var lastRemoteBolusTime: Long = 0
     var messages = ArrayList<String>()
-    var spokenCommand = ""
+    var fullCommandReceived = false
     lateinit var spokenCommandArray: Array<String>
 
     fun processVoiceCommand(intent: Intent) {
@@ -98,25 +98,29 @@ class VoiceAssistantPlugin @Inject constructor(
             return
         }
 
+        if (intent.getStringExtra("command") != null) {
+            spokenCommandArray = intent.getStringExtra("command").split(Regex("\\s+")).toTypedArray()
+            fullCommandReceived = true
+        }
+
         if (sp.getBoolean(R.string.key_voiceassistant_requireidentifier, true)) {
-            if (intent.getStringExtra("command") != null) {
-                spokenCommand = intent.getStringExtra("command")
-                spokenCommandArray = spokenCommand.split(Regex("\\s+")).toTypedArray()
+            if (fullCommandReceived) {
+                if (!identifierMatch(spokenCommandArray)) {
+                    userFeedback("I could not understand the patient name. Try again?")
+                    return
+                }
             } else {
                 userFeedback("I did not receive the patient name. Try again?")
-                return
-            }
-            if (!identifierMatch(spokenCommandArray)) {
-                userFeedback("I could not understand the patient name. Try again?")
                 return
             }
         }
 
         val requestType: String? = intent.getStringExtra("requesttype")
         if (requestType == null) {
-            userFeedback("Request type not received. Aborting")
+            userFeedback("I did not receive the request type. Try again?")
             return
-        } else {
+        }
+
             when (requestType) {
                 "carb"         ->
                     processCarbs(intent)
@@ -128,8 +132,9 @@ class VoiceAssistantPlugin @Inject constructor(
                     processGlucose()
                 "calculate"    ->
                     calculateBolus(intent)
+                "quiet"     ->
+                    userFeedback(" ") //this will stop Google from speaking additional messages such as "command sent"
             }
-        }
     }
 
     private fun processCarbs(intent: Intent) {
@@ -137,7 +142,7 @@ class VoiceAssistantPlugin @Inject constructor(
         if (intent.getStringExtra("amount") != null) {
             aapsLogger.debug(LTag.VOICECOMMAND, "Processing carb request")
         } else {
-            userFeedback("Carb amount not received. Aborting.")
+            userFeedback("I did not receive the carb amount. Try again?")
             return
         }
         val splitted = intent.getStringExtra("amount").split(Regex("\\s+")).toTypedArray()
@@ -230,7 +235,7 @@ class VoiceAssistantPlugin @Inject constructor(
         if (intent.getStringExtra("units") != null && intent.getStringExtra("meal") != null) {
             aapsLogger.debug(LTag.VOICECOMMAND, "Processing bolus request")
         } else {
-            userFeedback("Bolus request received was not complete. Aborting")
+            userFeedback("I did not receive the full bolus command. Try again?")
             return
         }
 
@@ -316,7 +321,7 @@ class VoiceAssistantPlugin @Inject constructor(
         val patientName = sp.getString(R.string.key_patient_name, "").toUpperCase()
         aapsLogger.debug(LTag.VOICECOMMAND, patientName)
         for (x in 0 until wordArray.size) {
-            aapsLogger.debug(LTag.VOICECOMMAND, wordArray[x])
+            aapsLogger.debug(LTag.VOICECOMMAND, "Command word " + x + "is " + wordArray[x])
             if (wordArray[x].toUpperCase() == patientName) returnCode = true
         }
         return returnCode
