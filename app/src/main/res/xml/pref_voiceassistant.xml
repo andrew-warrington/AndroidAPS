@@ -4,12 +4,13 @@
     xmlns:validate="http://schemas.android.com/apk/res-auto">
 
     <PreferenceCategory
-        android:title="@string/voiceassistant"
+        android:title="@string/voiceassistant_shortname"
         app:initialExpandedChildrenCount="0">
 
         <SwitchPreference
             android:defaultValue="false"
             android:key="@string/key_voiceassistant_commandsallowed"
+            android:summary="@string/voiceassistant_commandsallowed_summary"
             android:title="@string/voiceassistant_commandsallowed" />
 
         <SwitchPreference
