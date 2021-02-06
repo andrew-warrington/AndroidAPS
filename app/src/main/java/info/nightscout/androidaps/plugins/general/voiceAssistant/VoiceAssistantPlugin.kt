@@ -158,7 +158,7 @@ class VoiceAssistantPlugin @Inject constructor(
         var message = "To confirm adding " + grams + "grams of carb"
         if (patientName != "") message += " for " + patientName
         message += ", say Yes."
-        userFeedback(message, true, "carb", grams.toString(), patientName)
+        userFeedback(message, true, "carbconfirm", grams.toString(), patientName)
     }
 
     private fun processCarbs(intent: Intent) {
@@ -179,7 +179,10 @@ class VoiceAssistantPlugin @Inject constructor(
                         } else {
                             replyText = String.format(resourceHelper.gs(R.string.voiceassistant_carbsfailed), grams)
                         }
-                        if (requireIdentifier) replyText += " for " + patientName + "."
+                        if (requireIdentifier) {
+                            val recipient: String? = intent.getStringExtra("recipient")
+                            if (recipient != null && recipient != "") replyText += " for " + recipient + "."
+                        }
                         userFeedback(replyText,false)
                     }
                 })
