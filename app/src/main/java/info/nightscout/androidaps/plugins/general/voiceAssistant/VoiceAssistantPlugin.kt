@@ -9,33 +9,30 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 //TODO write code for setting time for carbs
 //TODO fix icon
 //TODO Additional commands
-//TODO onPreferenceChange listener
+//TODO onPreferenceChange listener?
 
-import android.content.Intent
 import android.content.Context
+import android.content.Intent
 import dagger.android.HasAndroidInjector
-import info.nightscout.androidaps.Config
 import info.nightscout.androidaps.Constants
 import info.nightscout.androidaps.R
 import info.nightscout.androidaps.data.DetailedBolusInfo
 import info.nightscout.androidaps.data.Profile
 import info.nightscout.androidaps.db.Source
 import info.nightscout.androidaps.db.TempTarget
+import info.nightscout.androidaps.db.Treatment
 import info.nightscout.androidaps.interfaces.*
 import info.nightscout.androidaps.logging.AAPSLogger
 import info.nightscout.androidaps.logging.LTag
-import info.nightscout.androidaps.plugins.aps.loop.LoopPlugin
-import info.nightscout.androidaps.plugins.bus.RxBusWrapper
 import info.nightscout.androidaps.plugins.configBuilder.ConstraintChecker
 import info.nightscout.androidaps.plugins.iob.iobCobCalculator.GlucoseStatus
 import info.nightscout.androidaps.plugins.iob.iobCobCalculator.IobCobCalculatorPlugin
+import info.nightscout.androidaps.plugins.treatments.TreatmentsPlugin
 import info.nightscout.androidaps.queue.Callback
 import info.nightscout.androidaps.services.Intents
 import info.nightscout.androidaps.utils.DateUtil
 import info.nightscout.androidaps.utils.DecimalFormatter
-import info.nightscout.androidaps.utils.FabricPrivacy
 import info.nightscout.androidaps.utils.SafeParse
-import info.nightscout.androidaps.utils.XdripCalibrations
 import info.nightscout.androidaps.utils.resources.ResourceHelper
 import info.nightscout.androidaps.utils.sharedPreferences.SP
 import java.util.*
@@ -44,33 +41,34 @@ import javax.inject.Singleton
 
 @Singleton
 class VoiceAssistantPlugin @Inject constructor(
-        injector: HasAndroidInjector,
-        aapsLogger: AAPSLogger,
-        resourceHelper: ResourceHelper,
-        private val context: Context,
-        private val sp: SP,
-        private val constraintChecker: ConstraintChecker,
+    injector: HasAndroidInjector,
+    aapsLogger: AAPSLogger,
+    resourceHelper: ResourceHelper,
+    private val context: Context,
+    private val sp: SP,
+    private val constraintChecker: ConstraintChecker,
 //        private val rxBus: RxBusWrapper,
-        private val profileFunction: ProfileFunction,
+    private val profileFunction: ProfileFunction,
 //        private val fabricPrivacy: FabricPrivacy,
-        private val activePlugin: ActivePluginProvider,
-        private val commandQueue: CommandQueueProvider,
+    private val activePlugin: ActivePluginProvider,
+    private val commandQueue: CommandQueueProvider,
 //        private val loopPlugin: LoopPlugin,
-        private val iobCobCalculatorPlugin: IobCobCalculatorPlugin,
+    private val iobCobCalculatorPlugin: IobCobCalculatorPlugin,
+    private val treatmentsPlugin: TreatmentsPlugin,
 //        private val xdripCalibrations: XdripCalibrations,
 //        private var otp: OneTimePassword,
 //        private val config: Config,
-        private val dateUtil: DateUtil,
-    ) : PluginBase(PluginDescription()
-        .mainType(PluginType.GENERAL)
-        .fragmentClass(VoiceAssistantFragment::class.java.name)
-        .pluginIcon(R.drawable.ic_voiceassistant)
-        .pluginName(R.string.voiceassistant)
-        .shortName(R.string.voiceassistant_shortname)
-        .preferencesId(R.xml.pref_voiceassistant)
-        .description(R.string.description_voiceassistant),
-        aapsLogger, resourceHelper, injector
-    ) {
+    private val dateUtil: DateUtil,
+) : PluginBase(PluginDescription()
+    .mainType(PluginType.GENERAL)
+    .fragmentClass(VoiceAssistantFragment::class.java.name)
+    .pluginIcon(R.drawable.ic_voiceassistant)
+    .pluginName(R.string.voiceassistant)
+    .shortName(R.string.voiceassistant_shortname)
+    .preferencesId(R.xml.pref_voiceassistant)
+    .description(R.string.description_voiceassistant),
+    aapsLogger, resourceHelper, injector
+) {
 
     var lastRemoteBolusTime: Long = 0
     var messages = ArrayList<String>()
@@ -112,16 +110,18 @@ class VoiceAssistantPlugin @Inject constructor(
             return
         }
         when (requestType) {
-            "carb"         ->
+            "carb" ->
                 processCarbs(intent)
-            "bolus"        ->
+            "bolus" ->
                 processBolus(intent)
-            "inforequest"      ->
+            "inforequest" ->
                 processInfoRequest()
-            "quiet"     ->
+            "quiet" ->
                 userFeedback("Ok.") //this will hopefully stop Google from eating up time by saying "command sent" and repeating the command.
-            "calculate"   ->
+            "calculate" ->
                 calculateBolus(intent)
+            "profileswitch" ->
+                processProfileSwitch(intent)
             }
     }
 
@@ -134,6 +134,7 @@ class VoiceAssistantPlugin @Inject constructor(
             return
         }
         val splitted = intent.getStringExtra("amount").split(Regex("\\s+")).toTypedArray()
+        splitted[0].replace("g", "", true)  //sometimes Google interprets "25 grams" as "25g". Need to get rid of the g.
         val gramsRequest = SafeParse.stringToInt(convertToDigit(splitted[0]))
         val grams = constraintChecker.applyCarbsConstraints(Constraint(gramsRequest)).value()
         if (gramsRequest != grams) {
@@ -173,6 +174,7 @@ class VoiceAssistantPlugin @Inject constructor(
 
         var glucoseRequest = false; var IOBRequest = false; var COBRequest = false; var deltaRequest = false;
         var profileRequest = false; var basalRateRequest = false; var lastBolusRequest = false; var trendRequest = false;
+        var statusRequest = false;
 
         if (fullCommandReceived) {
 
@@ -180,42 +182,44 @@ class VoiceAssistantPlugin @Inject constructor(
 
                 aapsLogger.debug(LTag.VOICECOMMAND, "Command word " + x + " is " + spokenCommandArray[x])
                 when (spokenCommandArray[x].toUpperCase(Locale.ROOT)) {
-                    "DETAIL"         ->             //need a regex here
+                    "DETAIL" ->             //need a regex here
                         detailedStatus = true
-                    "DETAILED"         ->
+                    "DETAILED" ->
                         detailedStatus = true
-                    "GLUCOSE"         -> {
+                    "GLUCOSE" ->
                         glucoseRequest = true
-                        }
-                    "SUGAR"         ->
+                    "SUGAR" ->
                         glucoseRequest = true
-                    "BG"         ->
+                    "BG" ->
                         glucoseRequest = true
-                    "IOB"         ->
+                    "IOB" ->
                         IOBRequest = true
-                    "INSULIN"         ->
+                    "INSULIN" ->
                         IOBRequest = true
-                    "COB"         ->
+                    "COB" ->
                         COBRequest = true
-                    "CARB"         ->               //need a regex here
+                    "CARB" ->               //need a regex here
                         COBRequest = true
-                    "CARBS"         ->
+                    "CARBS" ->
                         COBRequest = true
-                    "CARBOHYDRATE"         ->
+                    "CARBOHYDRATE" ->
                         COBRequest = true
-                    "CARBOHYDRATES"         ->
+                    "CARBOHYDRATES" ->
                         COBRequest = true
-                    "TREND"        ->
+                    "TREND" ->
                         trendRequest = true
-                    "BASAL"        ->
+                    "BASAL" ->
                         basalRateRequest = true
-                    "DELTA"        ->
+                    "BOLUS"   ->
+                        lastBolusRequest = true
+                    "DELTA" ->
                         deltaRequest = true
-                    "STATUS"       -> {
+                    "STATUS" -> {
                         glucoseRequest = true
                         deltaRequest = true
                         IOBRequest = true
                         COBRequest = true
+                        statusRequest = true
                     }
                 }
             }
@@ -237,6 +241,7 @@ class VoiceAssistantPlugin @Inject constructor(
         if (lastBolusRequest) reply += returnLastBolus()
         if (COBRequest) reply += returnCOB()
         if (basalRateRequest) reply += returnBasalRate()
+        if (statusRequest) reply += returnStatus()
 
         userFeedback(reply)
     }
@@ -251,7 +256,7 @@ class VoiceAssistantPlugin @Inject constructor(
         } else if (lastBG != null) {
             val agoMsec = System.currentTimeMillis() - lastBG.date
             val agoMin = (agoMsec / 60.0 / 1000.0).toInt()
-            reply = "Your last sensor glucose reading was " + " " + lastBG.valueToUnitsToString(units) + " " + units + ", " + String.format(resourceHelper.gs(R.string.sms_minago), agoMin) + " minutes ago."
+            reply = "Your last sensor glucose reading was " + " " + lastBG.valueToUnitsToString(units) + " " + units + ", " + String.format(resourceHelper.gs(R.string.sms_minago), agoMin) + "."
         } else {
             reply = "I could not get your most recent glucose reading."
         }
@@ -288,16 +293,30 @@ class VoiceAssistantPlugin @Inject constructor(
     }
 
     private fun returnLastBolus(): String {
-        return "I don't do last bolus requests yet."
+        //treatmentsPlugin.getLastBolusTime(true)
+        var output = ""
+        val last: Treatment? = treatmentsPlugin.getService().getLastBolus(true)
+        if (last != null) {
+            val amount: String = last.insulin.toString()
+            val date: String = DateUtil.dateString(last.date)
+            output =  "The last manual bolus was for " + amount + " units, on " + date + "."
+        } else {
+            output = "I could not find your last manual bolus."
+        }
+        return output
     }
 
     private fun returnCOB(): String {
         val cobInfo = iobCobCalculatorPlugin.getCobInfo(false, "Voice COB")
-        return "The carb on board is " + cobInfo.generateCOBString() +"."
+        return "The carb on board is " + cobInfo.generateCOBString() + "."
     }
 
     private fun returnBasalRate(): String {
         return "I don't do basal rate requests yet."
+    }
+
+    private fun returnStatus(): String {
+        return "The pump status is " + activePlugin.activePump.shortStatus(true) + "."
     }
 
     private fun calculateBolus(intent: Intent) {
@@ -305,9 +324,14 @@ class VoiceAssistantPlugin @Inject constructor(
         return
     }
 
-    private fun processBolus(intent: Intent) {
+    private fun processProfileSwitch(intent: Intent) {
 
-        //TODO security check?
+        //treatmentsPlugin.doProfileSwitch(duration, percentage, timeshift)
+        userFeedback("I don't do profile switches yet.")
+        return
+    }
+
+    private fun processBolus(intent: Intent) {
 
         if (intent.getStringExtra("units") != null) {
             aapsLogger.debug(LTag.VOICECOMMAND, "Processing bolus request")
@@ -342,7 +366,6 @@ class VoiceAssistantPlugin @Inject constructor(
                             if (resultSuccess) {
                                 var replyText = if (meal) String.format(resourceHelper.gs(R.string.voiceassistant_mealbolusdelivered), resultBolusDelivered)
                                 else String.format(resourceHelper.gs(R.string.voiceassistant_bolusdelivered), resultBolusDelivered)
- //                             replyText += "\n" + activePlugin.activePump.shortStatus(true)
                                 lastRemoteBolusTime = DateUtil.now()
                                 if (meal) {
                                     profileFunction.getProfile()?.let { currentProfile ->
@@ -370,8 +393,7 @@ class VoiceAssistantPlugin @Inject constructor(
                                     }
                                 }
                                 userFeedback(replyText)
-                            }
-                            else {
+                            } else {
                                 userFeedback(resourceHelper.gs(R.string.voiceassistant_bolusfailed))
                             }
                         }
