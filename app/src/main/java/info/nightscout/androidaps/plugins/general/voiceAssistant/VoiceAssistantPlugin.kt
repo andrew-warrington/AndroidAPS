@@ -70,10 +70,11 @@ class VoiceAssistantPlugin @Inject constructor(
     aapsLogger, resourceHelper, injector
 ) {
 
-    var lastRemoteBolusTime: Long = 0
     var messages = ArrayList<String>()
     var fullCommandReceived = false
     var detailedStatus = false
+    var requireIdentifier = true
+    val patientName = sp.getString(R.string.key_patient_name, "")
     lateinit var spokenCommandArray: Array<String>
 
     fun processVoiceCommand(intent: Intent) {
@@ -87,19 +88,21 @@ class VoiceAssistantPlugin @Inject constructor(
             return
         }
 
-        if (intent.getStringExtra("command") != null) {
+        val receivedCommand = intent.getStringExtra("command")
+        if (receivedCommand != null) {
+            aapsLogger.debug(LTag.VOICECOMMAND, "Command is " + receivedCommand)
             spokenCommandArray = intent.getStringExtra("command").split(Regex("\\s+")).toTypedArray()
             fullCommandReceived = true
         }
 
-        if (sp.getBoolean(R.string.key_voiceassistant_requireidentifier, true)) {
+        if (requireIdentifier) {
             if (fullCommandReceived) {
                 if (!patientMatch(spokenCommandArray)) {
-                    userFeedback("I could not understand the person's name. Try again?")
+                    userFeedback("I could not understand the person's name. Try again?", false)
                     return
                 }
             } else {
-                userFeedback("I did not receive the patient name. Try again?")
+                userFeedback("I did not receive the person's name. Try again?", false)
                 return
             }
         }
@@ -110,27 +113,34 @@ class VoiceAssistantPlugin @Inject constructor(
             return
         }
         when (requestType) {
-            "carb" ->
+            "carbsrequest" ->
+                requestCarbs(intent)
+            "carbconfirm" ->
                 processCarbs(intent)
-            "bolus" ->
+            "bolusrequest" ->
+                requestBolus(intent)
+            "bolusconfirm" ->
                 processBolus(intent)
+            "profileswitchrequest" ->
+                requestProfileSwitch(intent)
+            "profileswitchconfirm" ->
+                processProfileSwitch(intent)
             "inforequest" ->
                 processInfoRequest()
-            "quiet" ->
-                userFeedback("Ok.") //this will hopefully stop Google from eating up time by saying "command sent" and repeating the command.
             "calculate" ->
                 calculateBolus(intent)
-            "profileswitch" ->
-                processProfileSwitch(intent)
             }
     }
 
-    private fun processCarbs(intent: Intent) {
+
+    //////////////////// action request functions section /////////////////////////////
+
+    private fun requestCarbs(intent: Intent) {
 
         if (intent.getStringExtra("amount") != null) {
-            aapsLogger.debug(LTag.VOICECOMMAND, "Processing carb request")
+            aapsLogger.debug(LTag.VOICECOMMAND, "Reviewing carb request")
         } else {
-            userFeedback("I did not receive the carb amount. Try again?")
+            userFeedback("I did not receive the carb amount. Try again?",false)
             return
         }
         val splitted = intent.getStringExtra("amount").split(Regex("\\s+")).toTypedArray()
@@ -142,11 +152,20 @@ class VoiceAssistantPlugin @Inject constructor(
             return
         }
         if (grams == 0) {
-            userFeedback("Zero grams requested. Aborting.")
+            userFeedback("Zero grams requested. Aborting.",false)
             return
-        } else {
-            val carbslog = String.format(resourceHelper.gs(R.string.voiceassistant_carbslog), grams, DateUtil.now())
-            aapsLogger.debug(LTag.VOICECOMMAND, carbslog)
+        }
+        var message = "To confirm adding " + grams + "grams of carb"
+        if (patientName != "") message += " for " + patientName
+        message += ", say Yes."
+        userFeedback(message, true, "carb", grams.toString(), patientName)
+    }
+
+    private fun processCarbs(intent: Intent) {
+
+        val grams: String? = intent.getStringExtra("amount")
+        if (grams != null) {
+            aapsLogger.debug(LTag.VOICECOMMAND, String.format(resourceHelper.gs(R.string.voiceassistant_carbslog), grams, DateUtil.now()))
             val detailedBolusInfo = DetailedBolusInfo()
             detailedBolusInfo.carbs = grams.toDouble()
             detailedBolusInfo.source = Source.USER
@@ -154,96 +173,156 @@ class VoiceAssistantPlugin @Inject constructor(
             if (activePlugin.activePump.pumpDescription.storesCarbInfo) {
                 commandQueue.bolus(detailedBolusInfo, object : Callback() {
                     override fun run() {
-                        val replyText: String
+                        var replyText: String
                         if (result.success) {
                             replyText = String.format(resourceHelper.gs(R.string.voiceassistant_carbsset), grams)
                         } else {
                             replyText = String.format(resourceHelper.gs(R.string.voiceassistant_carbsfailed), grams)
                         }
-                        userFeedback(replyText)
+                        if (requireIdentifier) replyText += " for " + patientName + "."
+                        userFeedback(replyText,false)
                     }
                 })
             } else {
                 activePlugin.activeTreatments.addToHistoryTreatment(detailedBolusInfo, true)
-                userFeedback(String.format(resourceHelper.gs(R.string.voiceassistant_carbsset), grams))
+                var replyText: String = String.format(resourceHelper.gs(R.string.voiceassistant_carbsset), grams)
+                if (requireIdentifier) replyText += " for " + patientName + "."
+                userFeedback(replyText,false)
             }
         }
     }
 
+    private fun requestProfileSwitch(intent: Intent) {
+
+        userFeedback("I don't do profile switches yet.",false)
+        return
+
+    }
+
+    private fun processProfileSwitch(intent: Intent) {
+
+        //treatmentsPlugin.doProfileSwitch(duration, percentage, timeshift)
+        userFeedback("I don't do profile switches yet.",false)
+        return
+    }
+
+    private fun requestBolus(intent: Intent) {
+
+
+
+    }
+
+    private fun processBolus(intent: Intent) {
+
+        if (intent.getStringExtra("units") != null) {
+            aapsLogger.debug(LTag.VOICECOMMAND, "Processing bolus request")
+        } else {
+            userFeedback("I did not receive the amount. Try again?",false)
+            return
+        }
+        val splitted = intent.getStringExtra("units").split(Regex("\\s+")).toTypedArray()
+        val bolusRequest = SafeParse.stringToDouble(convertToDigit(splitted[0]))
+        val bolus = constraintChecker.applyBolusConstraints(Constraint(bolusRequest)).value()
+        if (bolusRequest != bolus) {
+            userFeedback(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "bolus", bolusRequest.toString(), bolus.toString()),false)
+            return
+        }
+        var meal = false
+        for (x in 0 until spokenCommandArray.size) {
+            if (spokenCommandArray[x].contains("meal", true)) meal = true
+        }
+        if (bolus > 0.0) {
+            val detailedBolusInfo = DetailedBolusInfo()
+            detailedBolusInfo.insulin = bolus
+            detailedBolusInfo.source = Source.USER
+            commandQueue.bolus(detailedBolusInfo, object : Callback() {
+                override fun run() {
+                    val resultSuccess = result.success
+                    val resultBolusDelivered = result.bolusDelivered
+                    commandQueue.readStatus("VOICECOMMAND", object : Callback() {
+                        override fun run() {
+                            if (resultSuccess) {
+                                var replyText = if (meal) String.format(resourceHelper.gs(R.string.voiceassistant_mealbolusdelivered), resultBolusDelivered)
+                                else String.format(resourceHelper.gs(R.string.voiceassistant_bolusdelivered), resultBolusDelivered)
+                                if (meal) {
+                                    profileFunction.getProfile()?.let { currentProfile ->
+                                        var eatingSoonTTDuration = sp.getInt(R.string.key_eatingsoon_duration, Constants.defaultEatingSoonTTDuration)
+                                        eatingSoonTTDuration =
+                                            if (eatingSoonTTDuration > 0) eatingSoonTTDuration
+                                            else Constants.defaultEatingSoonTTDuration
+                                        var eatingSoonTT = sp.getDouble(R.string.key_eatingsoon_target, if (currentProfile.units == Constants.MMOL) Constants.defaultEatingSoonTTmmol else Constants.defaultEatingSoonTTmgdl)
+                                        eatingSoonTT =
+                                            if (eatingSoonTT > 0) eatingSoonTT
+                                            else if (currentProfile.units == Constants.MMOL) Constants.defaultEatingSoonTTmmol
+                                            else Constants.defaultEatingSoonTTmgdl
+                                        val tempTarget = TempTarget()
+                                            .date(System.currentTimeMillis())
+                                            .duration(eatingSoonTTDuration)
+                                            .reason(resourceHelper.gs(R.string.eatingsoon))
+                                            .source(Source.USER)
+                                            .low(Profile.toMgdl(eatingSoonTT, currentProfile.units))
+                                            .high(Profile.toMgdl(eatingSoonTT, currentProfile.units))
+                                        activePlugin.activeTreatments.addToHistoryTempTarget(tempTarget)
+                                        val tt = if (currentProfile.units == Constants.MMOL)
+                                            DecimalFormatter.to1Decimal(eatingSoonTT)
+                                        else DecimalFormatter.to0Decimal(eatingSoonTT)
+                                        replyText += "\n" + String.format(resourceHelper.gs(R.string.voiceassistant_mealbolusdelivered_tt), tt, eatingSoonTTDuration)
+                                    }
+                                }
+                                userFeedback(replyText,false)
+                            } else {
+                                userFeedback(resourceHelper.gs(R.string.voiceassistant_bolusfailed),false)
+                            }
+                        }
+                    })
+                }
+            })
+        } else {
+            userFeedback("Zero units requested. Aborting.",false)
+        }
+    }
+
+
+    ////////////////////// Information request function section  ///////////////////////////////////////////
+
+    private fun calculateBolus(intent: Intent) {
+        userFeedback("I don't do bolus calculations yet.")
+        return
+    }
+
     private fun processInfoRequest() {
 
-        var glucoseRequest = false; var IOBRequest = false; var COBRequest = false; var deltaRequest = false;
-        var profileRequest = false; var basalRateRequest = false; var lastBolusRequest = false; var trendRequest = false;
-        var statusRequest = false;
+        var reply = ""
 
         if (fullCommandReceived) {
 
             for (x in 0 until spokenCommandArray.size) {
+                if (spokenCommandArray[x].contains("detail", true)) detailedStatus = true
+            }  //detailedStatus for certain functions such as returnIOB()
 
-                aapsLogger.debug(LTag.VOICECOMMAND, "Command word " + x + " is " + spokenCommandArray[x])
-                when (spokenCommandArray[x].toUpperCase(Locale.ROOT)) {
-                    "DETAIL" ->             //need a regex here
-                        detailedStatus = true
-                    "DETAILED" ->
-                        detailedStatus = true
-                    "GLUCOSE" ->
-                        glucoseRequest = true
-                    "SUGAR" ->
-                        glucoseRequest = true
-                    "BG" ->
-                        glucoseRequest = true
-                    "IOB" ->
-                        IOBRequest = true
-                    "INSULIN" ->
-                        IOBRequest = true
-                    "COB" ->
-                        COBRequest = true
-                    "CARB" ->               //need a regex here
-                        COBRequest = true
-                    "CARBS" ->
-                        COBRequest = true
-                    "CARBOHYDRATE" ->
-                        COBRequest = true
-                    "CARBOHYDRATES" ->
-                        COBRequest = true
-                    "TREND" ->
-                        trendRequest = true
-                    "BASAL" ->
-                        basalRateRequest = true
-                    "BOLUS"   ->
-                        lastBolusRequest = true
-                    "DELTA" ->
-                        deltaRequest = true
-                    "STATUS" -> {
-                        glucoseRequest = true
-                        deltaRequest = true
-                        IOBRequest = true
-                        COBRequest = true
-                        statusRequest = true
-                    }
-                }
+            for (x in 0 until spokenCommandArray.size) {
+                if (spokenCommandArray[x].contains("glucose", true)) reply += returnGlucose()
+                if (spokenCommandArray[x].contains("sugar", true)) reply += returnGlucose()
+                if (spokenCommandArray[x].contains("bg", true)) reply += returnGlucose()
+                if (spokenCommandArray[x].contains("iob", true)) reply += returnIOB()
+                if (spokenCommandArray[x].contains("insulin", true)) reply += returnIOB()
+                if (spokenCommandArray[x].contains("cob", true)) reply += returnCOB()
+                if (spokenCommandArray[x].contains("carb", true)) reply += returnCOB()
+                if (spokenCommandArray[x].contains("trend", true)) reply += returnTrend()
+                if (spokenCommandArray[x].contains("basal", true)) reply += returnBasalRate()
+                if (spokenCommandArray[x].contains("bolus", true)) reply += returnLastBolus()
+                if (spokenCommandArray[x].contains("delta", true)) reply += returnDelta()
+                if (spokenCommandArray[x].contains("summary", true))  reply += returnGlucose() + returnDelta() + returnIOB() + returnCOB() + returnStatus()
             }
         } else {
-            userFeedback("I did not get your full request. Try again?")
+            userFeedback("I did not get your full request. Try again?",false)
             return
         }
-
-        if (!(glucoseRequest || IOBRequest || COBRequest || profileRequest || basalRateRequest || lastBolusRequest || trendRequest || deltaRequest)) {
-            userFeedback("I could not understand what you were asking for. Try again?")
+        if (reply == "") {
+            userFeedback("I could not understand what you were asking for. Try again?",false)
             return
         }
-
-        var reply = ""
-        if (glucoseRequest) reply = returnGlucose()
-        if (deltaRequest) reply += returnDelta()
-        if (trendRequest) reply += returnTrend()
-        if (IOBRequest) reply += returnIOB()
-        if (lastBolusRequest) reply += returnLastBolus()
-        if (COBRequest) reply += returnCOB()
-        if (basalRateRequest) reply += returnBasalRate()
-        if (statusRequest) reply += returnStatus()
-
-        userFeedback(reply)
+        userFeedback(reply,false)
     }
 
     private fun returnGlucose(): String {
@@ -319,118 +398,40 @@ class VoiceAssistantPlugin @Inject constructor(
         return "The pump status is " + activePlugin.activePump.shortStatus(true) + "."
     }
 
-    private fun calculateBolus(intent: Intent) {
-        userFeedback("I don't do bolus calculations yet.")
-        return
-    }
+    //////////////////////////////// utility function section //////////////////////////////
 
-    private fun processProfileSwitch(intent: Intent) {
-
-        //treatmentsPlugin.doProfileSwitch(duration, percentage, timeshift)
-        userFeedback("I don't do profile switches yet.")
-        return
-    }
-
-    private fun processBolus(intent: Intent) {
-
-        if (intent.getStringExtra("units") != null) {
-            aapsLogger.debug(LTag.VOICECOMMAND, "Processing bolus request")
-        } else {
-            userFeedback("I did not receive the amount. Try again?")
-            return
-        }
-        val splitted = intent.getStringExtra("units").split(Regex("\\s+")).toTypedArray()
-        val bolusRequest = SafeParse.stringToDouble(convertToDigit(splitted[0]))
-        val bolus = constraintChecker.applyBolusConstraints(Constraint(bolusRequest)).value()
-        if (bolusRequest != bolus) {
-            userFeedback(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "bolus", bolusRequest.toString(), bolus.toString()))
-            return
-        }
-        var word = ""
-        var meal = false
-        for (x in 0 until spokenCommandArray.size) {
-            aapsLogger.debug(LTag.VOICECOMMAND, "Command word " + x + " is " + spokenCommandArray[x])
-            word = spokenCommandArray[x].toUpperCase(Locale.ROOT)
-            if (word == "MEAL" || word == "MEALS") meal = true
-        }
-        if (bolus > 0.0) {
-            val detailedBolusInfo = DetailedBolusInfo()
-            detailedBolusInfo.insulin = bolus
-            detailedBolusInfo.source = Source.USER
-            commandQueue.bolus(detailedBolusInfo, object : Callback() {
-                override fun run() {
-                    val resultSuccess = result.success
-                    val resultBolusDelivered = result.bolusDelivered
-                    commandQueue.readStatus("VOICECOMMAND", object : Callback() {
-                        override fun run() {
-                            if (resultSuccess) {
-                                var replyText = if (meal) String.format(resourceHelper.gs(R.string.voiceassistant_mealbolusdelivered), resultBolusDelivered)
-                                else String.format(resourceHelper.gs(R.string.voiceassistant_bolusdelivered), resultBolusDelivered)
-                                lastRemoteBolusTime = DateUtil.now()
-                                if (meal) {
-                                    profileFunction.getProfile()?.let { currentProfile ->
-                                        var eatingSoonTTDuration = sp.getInt(R.string.key_eatingsoon_duration, Constants.defaultEatingSoonTTDuration)
-                                        eatingSoonTTDuration =
-                                            if (eatingSoonTTDuration > 0) eatingSoonTTDuration
-                                            else Constants.defaultEatingSoonTTDuration
-                                        var eatingSoonTT = sp.getDouble(R.string.key_eatingsoon_target, if (currentProfile.units == Constants.MMOL) Constants.defaultEatingSoonTTmmol else Constants.defaultEatingSoonTTmgdl)
-                                        eatingSoonTT =
-                                            if (eatingSoonTT > 0) eatingSoonTT
-                                            else if (currentProfile.units == Constants.MMOL) Constants.defaultEatingSoonTTmmol
-                                            else Constants.defaultEatingSoonTTmgdl
-                                        val tempTarget = TempTarget()
-                                            .date(System.currentTimeMillis())
-                                            .duration(eatingSoonTTDuration)
-                                            .reason(resourceHelper.gs(R.string.eatingsoon))
-                                            .source(Source.USER)
-                                            .low(Profile.toMgdl(eatingSoonTT, currentProfile.units))
-                                            .high(Profile.toMgdl(eatingSoonTT, currentProfile.units))
-                                        activePlugin.activeTreatments.addToHistoryTempTarget(tempTarget)
-                                        val tt = if (currentProfile.units == Constants.MMOL)
-                                            DecimalFormatter.to1Decimal(eatingSoonTT)
-                                        else DecimalFormatter.to0Decimal(eatingSoonTT)
-                                        replyText += "\n" + String.format(resourceHelper.gs(R.string.voiceassistant_mealbolusdelivered_tt), tt, eatingSoonTTDuration)
-                                    }
-                                }
-                                userFeedback(replyText)
-                            } else {
-                                userFeedback(resourceHelper.gs(R.string.voiceassistant_bolusfailed))
-                            }
-                        }
-                    })
-                }
-            })
-        } else {
-            userFeedback("Zero units requested. Aborting.")
-        }
-    }
-
-    private fun userFeedback(message: String) {
+    private fun userFeedback(message: String, needsResponse: Boolean = false, type: String = "", amount: String = "", recipient: String = "") {
 
         //requires a 3rd party software such as Tasker to receive the intent with action "info.nightscout.androidaps.USER_FEEDBACK"
         //and speak the "message" contained in the extras.
         //messages also appear on the "VOICE" fragment in AndroidAPS.
 
-        messages.add(dateUtil.timeString(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + message + "</b><br>")
-        aapsLogger.debug(LTag.VOICECOMMAND, message)
+        messages.add(dateUtil.timeString(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + message + "Needs response: " + needsResponse + "</b><br>")
+        aapsLogger.debug(LTag.VOICECOMMAND, message + "Needs response: " + needsResponse)
 
-        context.sendBroadcast(
-            Intent(Intents.USER_FEEDBACK) // "info.nightscout.androidaps.USER_FEEDBACK"
-                .putExtra("message", message)
-        )
+        if (needsResponse) {
+            context.sendBroadcast(
+                Intent(Intents.USER_FEEDBACK_RESPONSE) // "info.nightscout.androidaps.USER_FEEDBACK_RESPONSE"
+                    .putExtra("requesttype", type)
+                    .putExtra("amount", amount)
+                    .putExtra("recipient", recipient)
+                    .putExtra("message", message)
+            )
+        } else {
+            context.sendBroadcast(
+                Intent(Intents.USER_FEEDBACK) // "info.nightscout.androidaps.USER_FEEDBACK"
+                    .putExtra("message", message)
+            )
+        }
     }
 
     private fun patientMatch(wordArray: Array<String>): Boolean {
 
         var returnCode = false
-        val patientName = sp.getString(R.string.key_patient_name, "").toUpperCase(Locale.ROOT)
-        var word: String
         aapsLogger.debug(LTag.VOICECOMMAND, patientName)
         for (x in 0 until wordArray.size) {
             aapsLogger.debug(LTag.VOICECOMMAND, "Command word " + x + " is " + wordArray[x])
-            word = wordArray[x].toUpperCase(Locale.ROOT)
-            if (word == patientName || word == patientName + "S" || word == patientName + "'S") returnCode = true
-            // above ^^ accept spoken name's possessive form, including in case of poor grammar e.g. "glucose for John" or "John's glucose" or "Johns glucose"
+            if (wordArray[x].contains(patientName, true)) returnCode = true
         }
         return returnCode
     }

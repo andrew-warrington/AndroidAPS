@@ -1,5 +1,7 @@
 package info.nightscout.androidaps.services;
 
+import org.jetbrains.annotations.Nullable;
+
 public interface Intents {
     // NSClient -> App
     String ACTION_NEW_TREATMENT = "info.nightscout.client.NEW_TREATMENT";
@@ -40,4 +42,5 @@ public interface Intents {
 
     // For voice responses
     String USER_FEEDBACK = "info.nightscout.androidaps.USER_FEEDBACK";
+    String USER_FEEDBACK_RESPONSE = "info.nightscout.androidaps.USER_FEEDBACK_RESPONSE";
 }
