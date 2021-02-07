@@ -1386,7 +1386,7 @@
     <string name="key_voiceassistant_commandsallowed" translatable="false">voiceassistant_commandsallowed</string>
     <string name="voiceassistant_commandsallowed">Allow control via a voice assistant</string>
     <string name="voiceassistant_carbslog">Received request to enter %1$s g of carb at %2$s.</string>
-    <string name="voiceassistant_carbsset">Carb %1$d grams entered successfully.</string>
+    <string name="voiceassistant_carbsset">Carb %1$s grams entered successfully.</string>
     <string name="voiceassistant_carbsfailed">Entering %1$d grams of carb failed.</string>
     <string name="voiceassistant_constraintresult">Your %1s request of %2s is higher than the configured maximum of %3s. Aborting.</string>
     <string name="voiceassistant_messagetouser">Message sent to user: %1s</string>
