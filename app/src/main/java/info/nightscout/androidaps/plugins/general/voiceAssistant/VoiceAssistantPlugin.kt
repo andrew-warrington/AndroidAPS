@@ -168,8 +168,10 @@ class VoiceAssistantPlugin @Inject constructor(
 
     private fun processCarbs(intent: Intent) {
 
-        val grams: String? = intent.getStringExtra("amount")
-        if (grams != null) {
+        val gramsReceived: String? = intent.getStringExtra("amount")
+        if (gramsReceived != null) {
+            val splitted = gramsReceived.split(kotlin.text.Regex("\\s+")).toTypedArray()
+            val grams = splitted[0]
             aapsLogger.debug(LTag.VOICECOMMAND, String.format(resourceHelper.gs(R.string.voiceassistant_carbslog), grams, DateUtil.now()))
             val detailedBolusInfo = DetailedBolusInfo()
             detailedBolusInfo.carbs = grams.toDouble()
@@ -255,14 +257,16 @@ class VoiceAssistantPlugin @Inject constructor(
     private fun processBolus(intent: Intent) {
 
         var isMeal = false
-        val amount = intent.getStringExtra("amount")
+        val unitsReceived: String? = intent.getStringExtra("amount")
 //        val meal = intent.getStringExtra("meal")
 //        if (meal != null) {
 //            if (meal == "true") isMeal = true
 //        }
-        if (amount != null) {
+        if (unitsReceived != null) {
+            val splitted = unitsReceived.split(kotlin.text.Regex("\\s+")).toTypedArray()
+            val units = splitted[0]
             val detailedBolusInfo = DetailedBolusInfo()
-            detailedBolusInfo.insulin = SafeParse.stringToDouble(amount)
+            detailedBolusInfo.insulin = SafeParse.stringToDouble(units)
             detailedBolusInfo.source = Source.USER
             commandQueue.bolus(detailedBolusInfo, object : Callback() {
                 override fun run() {
