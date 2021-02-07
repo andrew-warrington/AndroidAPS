@@ -13,6 +13,9 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 
 import android.content.Context
 import android.content.Intent
+import androidx.preference.SwitchPreference
+import androidx.preference.Preference
+import androidx.preference.PreferenceFragmentCompat
 import dagger.android.HasAndroidInjector
 import info.nightscout.androidaps.Constants
 import info.nightscout.androidaps.R
@@ -80,7 +83,7 @@ class VoiceAssistantPlugin @Inject constructor(
     var messages = ArrayList<String>()
     var fullCommandReceived = false
     var detailedStatus = false
-    var requireIdentifier = true
+    var requireIdentifier: Any = true
     val patientName = sp.getString(R.string.key_patient_name, "")
     lateinit var spokenCommandArray: Array<String>
 
@@ -98,10 +101,20 @@ class VoiceAssistantPlugin @Inject constructor(
         super.onStop()
     }
 
+    override fun preprocessPreferences(preferenceFragment: PreferenceFragmentCompat) {
+        super.preprocessPreferences(preferenceFragment)
+        val _requireIdentifier = preferenceFragment.findPreference(resourceHelper.gs(R.string.key_voiceassistant_requireidentifier)) as SwitchPreference?
+            ?: return
+        _requireIdentifier.onPreferenceChangeListener = Preference.OnPreferenceChangeListener { _: Preference?, newValue: Any ->
+            requireIdentifier = newValue
+            true
+        }
+    }
+
     private fun processSettings(ev: EventPreferenceChange?) {
         if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_requireidentifier)) {
             requireIdentifier = sp.getBoolean(R.string.key_voiceassistant_requireidentifier, true)
-            aapsLogger.debug(LTag.SMS, "Settings change: Require patient name set to " + requireIdentifier)
+            aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Require patient name set to " + requireIdentifier)
         }
     }
 
@@ -123,7 +136,7 @@ class VoiceAssistantPlugin @Inject constructor(
             fullCommandReceived = true
         }
 
-        if (requireIdentifier) {
+        if (requireIdentifier as Boolean) {
             if (fullCommandReceived) {
                 if (!patientMatch(spokenCommandArray)) {
                     userFeedback("I could not understand the person's name. Try again?", false)
@@ -214,7 +227,7 @@ class VoiceAssistantPlugin @Inject constructor(
                         } else {
                             replyText = String.format(resourceHelper.gs(R.string.voiceassistant_carbsfailed), grams)
                         }
-                        if (requireIdentifier) {
+                        if (requireIdentifier as Boolean) {
                             val recipient: String? = intent.getStringExtra("recipient")
                             if (recipient != null && recipient != "") replyText += " for " + recipient + "."
                         }
@@ -224,7 +237,7 @@ class VoiceAssistantPlugin @Inject constructor(
             } else {
                 activePlugin.activeTreatments.addToHistoryTreatment(detailedBolusInfo, true)
                 var replyText: String = String.format(resourceHelper.gs(R.string.voiceassistant_carbsset), grams)
-                if (requireIdentifier) {
+                if (requireIdentifier as Boolean) {
                     val recipient: String? = intent.getStringExtra("recipient")
                     if (recipient != null && recipient != "") replyText += " for " + recipient + "."
                 }
