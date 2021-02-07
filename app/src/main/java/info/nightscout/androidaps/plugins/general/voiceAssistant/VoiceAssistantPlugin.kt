@@ -141,15 +141,15 @@ class VoiceAssistantPlugin @Inject constructor(
 
         val amount = intent.getStringExtra("amount")
         if ("amount" != null) {
-            aapsLogger.debug(LTag.VOICECOMMAND, "Received initial carb request containing " + amount)
+            aapsLogger.debug(LTag.VOICECOMMAND, "Received initial carb request containing: " + amount)
         } else {
             userFeedback("I did not receive the carb amount. Try again?",false)
             return
         }
         val splitted = amount.split(Regex("\\s+")).toTypedArray()
-        splitted[0].replace("g", "", true)  //sometimes Google interprets "25 grams" as "25g". Need to get rid of the g.
-        aapsLogger.debug(LTag.VOICECOMMAND, "Carb amount parsed to " + splitted[0])
-        val gramsRequest = SafeParse.stringToInt(convertToDigit(splitted[0]))
+        val cleaned = splitted[0].replace("g", "", true)  //sometimes Google interprets "25 grams" as "25g". Need to get rid of the g.
+        aapsLogger.debug(LTag.VOICECOMMAND, "Carb amount parsed to " + cleaned)
+        val gramsRequest = SafeParse.stringToInt(convertToDigit(cleaned))
         val grams = constraintChecker.applyCarbsConstraints(Constraint(gramsRequest)).value()
         if (gramsRequest != grams) {
             userFeedback(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "carb", gramsRequest.toString(), grams.toString()))
@@ -341,13 +341,13 @@ class VoiceAssistantPlugin @Inject constructor(
         var reply = ""
         val units = profileFunction.getUnits()
         if (actualBG != null) {
-            reply = "Your current sensor glucose reading is " + actualBG.valueToUnitsToString(units) + " " + units + "."
+            reply = "The current sensor glucose reading is " + actualBG.valueToUnitsToString(units) + " " + units + "."
         } else if (lastBG != null) {
             val agoMsec = System.currentTimeMillis() - lastBG.date
             val agoMin = (agoMsec / 60.0 / 1000.0).toInt()
-            reply = "Your last sensor glucose reading was " + " " + lastBG.valueToUnitsToString(units) + " " + units + ", " + String.format(resourceHelper.gs(R.string.sms_minago), agoMin) + "."
+            reply = "The last sensor glucose reading was " + " " + lastBG.valueToUnitsToString(units) + " " + units + ", " + String.format(resourceHelper.gs(R.string.sms_minago), agoMin) + "."
         } else {
-            reply = "I could not get your most recent glucose reading."
+            reply = "I could not get the most recent glucose reading."
         }
         return reply
     }
@@ -390,7 +390,7 @@ class VoiceAssistantPlugin @Inject constructor(
             val date: String = DateUtil.dateString(last.date)
             output =  "The last manual bolus was for " + amount + " units, on " + date + "."
         } else {
-            output = "I could not find your last manual bolus."
+            output = "I could not find the last manual bolus."
         }
         return output
     }
@@ -417,7 +417,7 @@ class VoiceAssistantPlugin @Inject constructor(
         //messages also appear on the "VOICE" fragment in AndroidAPS.
 
         messages.add(dateUtil.timeString(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + message + "Needs response: " + needsResponse + "</b><br>")
-        aapsLogger.debug(LTag.VOICECOMMAND, message + "Needs response: " + needsResponse)
+        aapsLogger.debug(LTag.VOICECOMMAND, message + " Needs response: " + needsResponse)
 
         if (needsResponse) {
             context.sendBroadcast(
@@ -440,7 +440,7 @@ class VoiceAssistantPlugin @Inject constructor(
         var returnCode = false
         aapsLogger.debug(LTag.VOICECOMMAND, patientName)
         for (x in 0 until wordArray.size) {
-            aapsLogger.debug(LTag.VOICECOMMAND, "Command word " + x + " is " + wordArray[x])
+            //aapsLogger.debug(LTag.VOICECOMMAND, "Command word " + x + " is " + wordArray[x])
             if (wordArray[x].contains(patientName, true)) returnCode = true
         }
         return returnCode
