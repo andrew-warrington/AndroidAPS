@@ -131,7 +131,8 @@ class VoiceAssistantPlugin @Inject constructor(
 
         val receivedCommand = intent.getStringExtra("command")
         if (receivedCommand != null) {
-            aapsLogger.debug(LTag.VOICECOMMAND, "Command is " + receivedCommand)
+            aapsLogger.debug(LTag.VOICECOMMAND, "Command is: " + receivedCommand)
+            messages.add("The following command was received: " + receivedCommand)
             spokenCommandArray = intent.getStringExtra("command").split(Regex("\\s+")).toTypedArray()
             fullCommandReceived = true
         }
@@ -139,7 +140,7 @@ class VoiceAssistantPlugin @Inject constructor(
         if (requireIdentifier as Boolean) {
             if (fullCommandReceived) {
                 if (!patientMatch(spokenCommandArray)) {
-                    userFeedback("I could not understand the person's name. Try again?", false)
+                    userFeedback("You need to specify the person's name when asking. Try again?", false)
                     return
                 }
             } else {
@@ -213,7 +214,7 @@ class VoiceAssistantPlugin @Inject constructor(
         if (gramsReceived != null) {
             val splitted = gramsReceived.split(kotlin.text.Regex("\\s+")).toTypedArray()
             val grams = splitted[0]
-            aapsLogger.debug(LTag.VOICECOMMAND, String.format(resourceHelper.gs(R.string.voiceassistant_carbslog), grams, DateUtil.now()))
+            aapsLogger.debug(LTag.VOICECOMMAND, String.format(resourceHelper.gs(R.string.voiceassistant_carbslog), grams))
             val detailedBolusInfo = DetailedBolusInfo()
             detailedBolusInfo.carbs = grams.toDouble()
             detailedBolusInfo.source = Source.USER
