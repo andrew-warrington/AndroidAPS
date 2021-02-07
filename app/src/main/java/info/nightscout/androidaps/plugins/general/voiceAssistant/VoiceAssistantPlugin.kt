@@ -47,18 +47,18 @@ class VoiceAssistantPlugin @Inject constructor(
     private val context: Context,
     private val sp: SP,
     private val constraintChecker: ConstraintChecker,
-//        private val rxBus: RxBusWrapper,
     private val profileFunction: ProfileFunction,
-//        private val fabricPrivacy: FabricPrivacy,
     private val activePlugin: ActivePluginProvider,
     private val commandQueue: CommandQueueProvider,
-//        private val loopPlugin: LoopPlugin,
     private val iobCobCalculatorPlugin: IobCobCalculatorPlugin,
     private val treatmentsPlugin: TreatmentsPlugin,
-//        private val xdripCalibrations: XdripCalibrations,
-//        private var otp: OneTimePassword,
-//        private val config: Config,
     private val dateUtil: DateUtil,
+//     private val rxBus: RxBusWrapper,
+//     private val fabricPrivacy: FabricPrivacy,
+//     private val loopPlugin: LoopPlugin,
+//     private val xdripCalibrations: XdripCalibrations,
+//     private var otp: OneTimePassword,
+//     private val config: Config,
 ) : PluginBase(PluginDescription()
     .mainType(PluginType.GENERAL)
     .fragmentClass(VoiceAssistantFragment::class.java.name)
@@ -113,8 +113,9 @@ class VoiceAssistantPlugin @Inject constructor(
             return
         }
         aapsLogger.debug(LTag.VOICECOMMAND, "Received request type: " + requestType + ".")
+
         when (requestType) {
-            "carbsrequest" ->
+            "carbrequest" ->
                 requestCarbs(intent)
             "carbconfirm" ->
                 processCarbs(intent)
