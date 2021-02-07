@@ -147,9 +147,10 @@ class VoiceAssistantPlugin @Inject constructor(
             return
         }
         val splitted = amount.split(Regex("\\s+")).toTypedArray()
-        val cleaned = splitted[0].replace("g", "", true)  //sometimes Google interprets "25 grams" as "25g". Need to get rid of the g.
+        val converted = convertToDigit(splitted[0])
+        val cleaned = converted.replace("g", "", true)  //sometimes Google interprets "25 grams" as "25g". Need to get rid of the g.
         aapsLogger.debug(LTag.VOICECOMMAND, "Carb amount parsed to " + cleaned)
-        val gramsRequest = SafeParse.stringToInt(convertToDigit(cleaned))
+        val gramsRequest = SafeParse.stringToInt(cleaned)
         val grams = constraintChecker.applyCarbsConstraints(Constraint(gramsRequest)).value()
         if (gramsRequest != grams) {
             userFeedback(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "carb", gramsRequest.toString(), grams.toString()))
@@ -218,32 +219,50 @@ class VoiceAssistantPlugin @Inject constructor(
 
     private fun requestBolus(intent: Intent) {
 
-
-
-    }
-
-    private fun processBolus(intent: Intent) {
-
-        if (intent.getStringExtra("units") != null) {
+        val amount = intent.getStringExtra("amount")
+        if (amount != null) {
             aapsLogger.debug(LTag.VOICECOMMAND, "Processing bolus request")
         } else {
             userFeedback("I did not receive the amount. Try again?",false)
             return
         }
-        val splitted = intent.getStringExtra("units").split(Regex("\\s+")).toTypedArray()
-        val bolusRequest = SafeParse.stringToDouble(convertToDigit(splitted[0]))
+        val splitted = amount.split(Regex("\\s+")).toTypedArray()
+        val converted = convertToDigit(splitted[0])
+        val cleaned = converted.replace("u", "", true)  //sometimes Google interprets "2 units" as "2u". Need to get rid of the u.
+        val bolusRequest = SafeParse.stringToDouble(cleaned)
         val bolus = constraintChecker.applyBolusConstraints(Constraint(bolusRequest)).value()
         if (bolusRequest != bolus) {
             userFeedback(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "bolus", bolusRequest.toString(), bolus.toString()),false)
             return
         }
+        if (bolus == 0.0) {
+            userFeedback("Zero units requested. Aborting.", false)
+            return
+        }
+
         var meal = false
         for (x in 0 until spokenCommandArray.size) {
             if (spokenCommandArray[x].contains("meal", true)) meal = true
         }
-        if (bolus > 0.0) {
+
+        var replyText = "To confirm delivery of " + bolus + "units of insulin"
+        if (patientName != "") replyText += " for " + patientName
+        replyText += ", say Yes."
+        userFeedback(replyText,true,"bolusconfirm", bolus.toString(), patientName)
+
+    }
+
+    private fun processBolus(intent: Intent) {
+
+        var isMeal = false
+        val amount = intent.getStringExtra("amount")
+//        val meal = intent.getStringExtra("meal")
+//        if (meal != null) {
+//            if (meal == "true") isMeal = true
+//        }
+        if (amount != null) {
             val detailedBolusInfo = DetailedBolusInfo()
-            detailedBolusInfo.insulin = bolus
+            detailedBolusInfo.insulin = SafeParse.stringToDouble(amount)
             detailedBolusInfo.source = Source.USER
             commandQueue.bolus(detailedBolusInfo, object : Callback() {
                 override fun run() {
@@ -252,9 +271,9 @@ class VoiceAssistantPlugin @Inject constructor(
                     commandQueue.readStatus("VOICECOMMAND", object : Callback() {
                         override fun run() {
                             if (resultSuccess) {
-                                var replyText = if (meal) String.format(resourceHelper.gs(R.string.voiceassistant_mealbolusdelivered), resultBolusDelivered)
+                                var replyText = if (isMeal) String.format(resourceHelper.gs(R.string.voiceassistant_mealbolusdelivered), resultBolusDelivered)
                                 else String.format(resourceHelper.gs(R.string.voiceassistant_bolusdelivered), resultBolusDelivered)
-                                if (meal) {
+                                if (isMeal) {
                                     profileFunction.getProfile()?.let { currentProfile ->
                                         var eatingSoonTTDuration = sp.getInt(R.string.key_eatingsoon_duration, Constants.defaultEatingSoonTTDuration)
                                         eatingSoonTTDuration =
@@ -279,16 +298,14 @@ class VoiceAssistantPlugin @Inject constructor(
                                         replyText += "\n" + String.format(resourceHelper.gs(R.string.voiceassistant_mealbolusdelivered_tt), tt, eatingSoonTTDuration)
                                     }
                                 }
-                                userFeedback(replyText,false)
+                                userFeedback(replyText, false)
                             } else {
-                                userFeedback(resourceHelper.gs(R.string.voiceassistant_bolusfailed),false)
+                                userFeedback(resourceHelper.gs(R.string.voiceassistant_bolusfailed), false)
                             }
                         }
                     })
                 }
             })
-        } else {
-            userFeedback("Zero units requested. Aborting.",false)
         }
     }
 
@@ -448,18 +465,16 @@ class VoiceAssistantPlugin @Inject constructor(
 
     private fun convertToDigit(string: String): String {
         var output = string
-        when (output.toUpperCase(Locale.ROOT)) {
-            "ZERO" -> output = "0"
-            "ONE" -> output = "1"
-            "TWO" -> output = "2"
-            "THREE" -> output = "3"
-            "FOUR" -> output = "4"
-            "FIVE" -> output = "5"
-            "SIX" -> output = "6"
-            "SEVEN" -> output = "7"
-            "EIGHT" -> output = "8"
-            "NINE" -> output = "9"
-        }
+        output.replace("zero", "0", true)
+        output.replace("one", "1", true)
+        output.replace("two", "2", true)
+        output.replace("three", "3", true)
+        output.replace("four", "4", true)
+        output.replace("five", "5", true)
+        output.replace("six", "6", true)
+        output.replace("seven", "7", true)
+        output.replace("eight", "8", true)
+        output.replace("nine", "9", true)
         return output
     }
 }
