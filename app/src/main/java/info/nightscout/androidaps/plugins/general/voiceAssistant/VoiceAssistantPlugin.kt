@@ -112,6 +112,7 @@ class VoiceAssistantPlugin @Inject constructor(
             userFeedback("I did not receive the request type. Try again?")
             return
         }
+        aapsLogger.debug(LTag.VOICECOMMAND, "Received request type: " + requestType + ".")
         when (requestType) {
             "carbsrequest" ->
                 requestCarbs(intent)
@@ -137,14 +138,16 @@ class VoiceAssistantPlugin @Inject constructor(
 
     private fun requestCarbs(intent: Intent) {
 
-        if (intent.getStringExtra("amount") != null) {
-            aapsLogger.debug(LTag.VOICECOMMAND, "Reviewing carb request")
+        val amount = intent.getStringExtra("amount")
+        if ("amount" != null) {
+            aapsLogger.debug(LTag.VOICECOMMAND, "Received initial carb request containing " + amount)
         } else {
             userFeedback("I did not receive the carb amount. Try again?",false)
             return
         }
-        val splitted = intent.getStringExtra("amount").split(Regex("\\s+")).toTypedArray()
+        val splitted = amount.split(Regex("\\s+")).toTypedArray()
         splitted[0].replace("g", "", true)  //sometimes Google interprets "25 grams" as "25g". Need to get rid of the g.
+        aapsLogger.debug(LTag.VOICECOMMAND, "Carb amount parsed to " + splitted[0])
         val gramsRequest = SafeParse.stringToInt(convertToDigit(splitted[0]))
         val grams = constraintChecker.applyCarbsConstraints(Constraint(gramsRequest)).value()
         if (gramsRequest != grams) {
@@ -155,10 +158,10 @@ class VoiceAssistantPlugin @Inject constructor(
             userFeedback("Zero grams requested. Aborting.",false)
             return
         }
-        var message = "To confirm adding " + grams + "grams of carb"
-        if (patientName != "") message += " for " + patientName
-        message += ", say Yes."
-        userFeedback(message, true, "carbconfirm", grams.toString(), patientName)
+        var replyText = "To confirm adding " + grams + "grams of carb"
+        if (patientName != "") replyText += " for " + patientName
+        replyText += ", say Yes."
+        userFeedback(replyText, true, "carbconfirm", grams.toString(), patientName)
     }
 
     private fun processCarbs(intent: Intent) {
@@ -189,7 +192,10 @@ class VoiceAssistantPlugin @Inject constructor(
             } else {
                 activePlugin.activeTreatments.addToHistoryTreatment(detailedBolusInfo, true)
                 var replyText: String = String.format(resourceHelper.gs(R.string.voiceassistant_carbsset), grams)
-                if (requireIdentifier) replyText += " for " + patientName + "."
+                if (requireIdentifier) {
+                    val recipient: String? = intent.getStringExtra("recipient")
+                    if (recipient != null && recipient != "") replyText += " for " + recipient + "."
+                }
                 userFeedback(replyText,false)
             }
         }
