@@ -21,9 +21,11 @@ import info.nightscout.androidaps.data.Profile
 import info.nightscout.androidaps.db.Source
 import info.nightscout.androidaps.db.TempTarget
 import info.nightscout.androidaps.db.Treatment
+import info.nightscout.androidaps.events.EventPreferenceChange
 import info.nightscout.androidaps.interfaces.*
 import info.nightscout.androidaps.logging.AAPSLogger
 import info.nightscout.androidaps.logging.LTag
+import info.nightscout.androidaps.plugins.bus.RxBusWrapper
 import info.nightscout.androidaps.plugins.configBuilder.ConstraintChecker
 import info.nightscout.androidaps.plugins.iob.iobCobCalculator.GlucoseStatus
 import info.nightscout.androidaps.plugins.iob.iobCobCalculator.IobCobCalculatorPlugin
@@ -32,9 +34,13 @@ import info.nightscout.androidaps.queue.Callback
 import info.nightscout.androidaps.services.Intents
 import info.nightscout.androidaps.utils.DateUtil
 import info.nightscout.androidaps.utils.DecimalFormatter
+import info.nightscout.androidaps.utils.FabricPrivacy
 import info.nightscout.androidaps.utils.SafeParse
+import info.nightscout.androidaps.utils.extensions.plusAssign
 import info.nightscout.androidaps.utils.resources.ResourceHelper
 import info.nightscout.androidaps.utils.sharedPreferences.SP
+import io.reactivex.schedulers.Schedulers
+import io.reactivex.disposables.CompositeDisposable
 import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -53,8 +59,8 @@ class VoiceAssistantPlugin @Inject constructor(
     private val iobCobCalculatorPlugin: IobCobCalculatorPlugin,
     private val treatmentsPlugin: TreatmentsPlugin,
     private val dateUtil: DateUtil,
-//     private val rxBus: RxBusWrapper,
-//     private val fabricPrivacy: FabricPrivacy,
+    private val rxBus: RxBusWrapper,
+    private val fabricPrivacy: FabricPrivacy
 //     private val loopPlugin: LoopPlugin,
 //     private val xdripCalibrations: XdripCalibrations,
 //     private var otp: OneTimePassword,
@@ -70,12 +76,34 @@ class VoiceAssistantPlugin @Inject constructor(
     aapsLogger, resourceHelper, injector
 ) {
 
+    private val disposable = CompositeDisposable()
     var messages = ArrayList<String>()
     var fullCommandReceived = false
     var detailedStatus = false
     var requireIdentifier = true
     val patientName = sp.getString(R.string.key_patient_name, "")
     lateinit var spokenCommandArray: Array<String>
+
+    override fun onStart() {
+        processSettings(null)
+        super.onStart()
+        disposable += rxBus
+            .toObservable(EventPreferenceChange::class.java)
+            .observeOn(Schedulers.io())
+            .subscribe({ event: EventPreferenceChange? -> processSettings(event) }) { fabricPrivacy.logException(it) }
+    }
+
+    override fun onStop() {
+        disposable.clear()
+        super.onStop()
+    }
+
+    private fun processSettings(ev: EventPreferenceChange?) {
+        if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_requireidentifier)) {
+            requireIdentifier = sp.getBoolean(R.string.key_voiceassistant_requireidentifier, true)
+            aapsLogger.debug(LTag.SMS, "Settings change: Require patient name set to " + requireIdentifier)
+        }
+    }
 
     fun processVoiceCommand(intent: Intent) {
 
