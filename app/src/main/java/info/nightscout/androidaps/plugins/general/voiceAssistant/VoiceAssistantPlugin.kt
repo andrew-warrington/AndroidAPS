@@ -86,6 +86,7 @@ class VoiceAssistantPlugin @Inject constructor(
     var cleanedCommand = ""
     var bolusReplacements = ""
     var carbReplacements = ""
+    var nameReplacements = ""
     var infoRequestReplacements = ""
     lateinit var spokenCommandArray: Array<String>
 
@@ -126,6 +127,10 @@ class VoiceAssistantPlugin @Inject constructor(
             carbReplacements = sp.getString(R.string.key_voiceassistant_carbreplacements,"")
             if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Carb word replacements set to " + carbReplacements)
         }
+        if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_namereplacements)) {
+            carbReplacements = sp.getString(R.string.key_voiceassistant_namereplacements, "")
+            if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Name replacements set to " + nameReplacements)
+        }
         if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_inforequests)) {
             infoRequestReplacements = sp.getString(R.string.key_voiceassistant_inforequests,"")
             if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Info request trigger words set to " + infoRequestReplacements)
@@ -156,11 +161,17 @@ class VoiceAssistantPlugin @Inject constructor(
 
         val receivedCommand: String? = intent.getStringExtra("command")
         if (receivedCommand != null) {
+
             aapsLogger.debug(LTag.VOICECOMMAND, "Command received: " + receivedCommand)
             messages.add(dateUtil.timeString(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + "Command received: " + receivedCommand + "</b><br>")
             fullCommandReceived = true
+
+            if (receivedCommand.toLowerCase() == "no" || receivedCommand.contains("abort", true) || receivedCommand.contains("cancel",true)) return
+            //any negative command coming through should stop further processing.
+
             cleanedCommand = processReplacements(receivedCommand)
             spokenCommandArray = cleanedCommand.split(Regex("\\s+")).toTypedArray()
+
         } else {
             userFeedback("I did not receive the command. Try again.", false)
             return
@@ -535,6 +546,14 @@ class VoiceAssistantPlugin @Inject constructor(
             wordArray = carbReplacements.split(Regex(";")).toTypedArray()
             for (x in 0 until wordArray.size) {
                 output = output.replace(wordArray[x], "carb", true)
+            }
+        }
+
+        //name
+        if (nameReplacements != "") {
+            wordArray = nameReplacements.split(Regex(";")).toTypedArray()
+            for (x in 0 until wordArray.size) {
+                output = output.replace(wordArray[x], patientName, true)
             }
         }
 
