@@ -16,13 +16,13 @@
         <SwitchPreference
             android:defaultValue="true"
             android:key="@string/key_voiceassistant_requireidentifier"
-            android:dependency="key_voiceassistant_commandsallowed"
+            android:dependency="@string/key_voiceassistant_commandsallowed"
             android:summary="@string/voiceassistant_requireidentifier_summary"
             android:title="@string/voiceassistant_requireidentifier" />
 
         <androidx.preference.PreferenceScreen
             android:key="@string/key_voiceassistant_replacements"
-            android:dependency="key_voiceassistant_commandsallowed"
+            android:dependency="@string/key_voiceassistant_commandsallowed"
             android:title="@string/voiceassistant_replacements"
             android:summary="@string/voiceassistant_replacements_summary">
 

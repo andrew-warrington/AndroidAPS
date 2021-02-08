@@ -1,8 +1,5 @@
 package info.nightscout.androidaps.plugins.general.voiceAssistant
 
-// Receives intents from an external voice assistant and forwards to the VoiceAssistantPlugin
-// As of Jan 2021 recommend voice assistant integration via Tasker and AutoVoice apps on Android, as these work with both Google and Alexa
-
 //TODO assess whether any permissions required in AndroidManifest
 //TODO move strings to strings.xml
 //TODO logic to enable certain features based on config (pump control, nsclient, APS)
@@ -168,7 +165,7 @@ class VoiceAssistantPlugin @Inject constructor(
         }
 
         if (requireIdentifier as Boolean) {
-            if (!cleanedCommand.contains(patientName)) {
+            if (!cleanedCommand.contains(patientName, true)) {
                 userFeedback("You need to specify the person's name when asking. Try again?", false)
                 return
             }
@@ -369,6 +366,8 @@ class VoiceAssistantPlugin @Inject constructor(
                 if (spokenCommandArray[x].contains("detail", true)) detailedStatus = true
             }  //detailedStatus for certain functions such as returnIOB()
 
+            //Author's note: This code feels wonkily inefficient cycling through all those "contains" methods over and over again.
+            //The goal it achieves is having the information returned to the user in the same order it was requested.
             for (x in 0 until spokenCommandArray.size) {
                 if (spokenCommandArray[x].contains("glucose", true)) reply += returnGlucose()
                 if (spokenCommandArray[x].contains("sugar", true)) reply += returnGlucose()
