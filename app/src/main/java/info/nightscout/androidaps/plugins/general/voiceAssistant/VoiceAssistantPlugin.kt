@@ -13,9 +13,9 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 
 import android.content.Context
 import android.content.Intent
-import androidx.preference.SwitchPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
+import androidx.preference.SwitchPreference
 import dagger.android.HasAndroidInjector
 import info.nightscout.androidaps.Constants
 import info.nightscout.androidaps.R
@@ -42,8 +42,9 @@ import info.nightscout.androidaps.utils.SafeParse
 import info.nightscout.androidaps.utils.extensions.plusAssign
 import info.nightscout.androidaps.utils.resources.ResourceHelper
 import info.nightscout.androidaps.utils.sharedPreferences.SP
-import io.reactivex.schedulers.Schedulers
 import io.reactivex.disposables.CompositeDisposable
+import io.reactivex.schedulers.Schedulers
+import kotlinx.android.synthetic.main.configbuilder_single_plugin.view.*
 import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -56,6 +57,7 @@ class VoiceAssistantPlugin @Inject constructor(
     private val context: Context,
     private val sp: SP,
     private val constraintChecker: ConstraintChecker,
+    private val preferenceFragment: PreferenceFragmentCompat,
     private val profileFunction: ProfileFunction,
     private val activePlugin: ActivePluginProvider,
     private val commandQueue: CommandQueueProvider,
@@ -85,6 +87,10 @@ class VoiceAssistantPlugin @Inject constructor(
     var detailedStatus = false
     var requireIdentifier: Any = true
     val patientName = sp.getString(R.string.key_patient_name, "")
+    var cleanedCommand = ""
+    var bolusReplacements = ""
+    var carbReplacements = ""
+    var infoRequestReplacements = ""
     lateinit var spokenCommandArray: Array<String>
 
     override fun onStart() {
@@ -114,11 +120,23 @@ class VoiceAssistantPlugin @Inject constructor(
     private fun processSettings(ev: EventPreferenceChange?) {
         if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_requireidentifier)) {
             requireIdentifier = sp.getBoolean(R.string.key_voiceassistant_requireidentifier, true)
-            aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Require patient name set to " + requireIdentifier)
+            if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Require patient name set to " + requireIdentifier)
+        }
+        if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_bolusreplacements)) {
+            bolusReplacements = sp.getString(R.string.key_voiceassistant_bolusreplacements,"")
+            if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Bolus word replacements set to " + bolusReplacements)
+        }
+        if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_carbreplacements)) {
+            carbReplacements = sp.getString(R.string.key_voiceassistant_carbreplacements,"")
+            if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Carb word replacements set to " + carbReplacements)
+        }
+        if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_inforequests)) {
+            infoRequestReplacements = sp.getString(R.string.key_voiceassistant_inforequests,"")
+            if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Info request trigger words set to " + infoRequestReplacements)
         }
     }
 
-    fun processVoiceCommand(intent: Intent) {
+    fun processCommand(intent: Intent) {
 
         if (!isEnabled(PluginType.GENERAL)) {
             userFeedback("The voice assistant plugin is disabled. Please enable in the Config Builder.")
@@ -129,91 +147,83 @@ class VoiceAssistantPlugin @Inject constructor(
             return
         }
 
-        val receivedCommand = intent.getStringExtra("command")
+        // if the intent is to confirm an already-requested action, then jump straight to execution without further processing
+        val parameters: String? = intent.getStringExtra("parameters")
+        if (parameters != null) {
+            if (parameters.contains("carbconfirm")) { processCarbs(intent) ; return }
+            if (parameters.contains("bolusconfirm")) { processBolus(intent) ; return }
+            if (parameters.contains("profileswitchconfirm")) { processProfileSwitch(intent) ; return }
+        }
+
+        val receivedCommand: String? = intent.getStringExtra("command")
         if (receivedCommand != null) {
-            aapsLogger.debug(LTag.VOICECOMMAND, "Command is: " + receivedCommand)
-            messages.add("The following command was received: " + receivedCommand)
-            spokenCommandArray = intent.getStringExtra("command").split(Regex("\\s+")).toTypedArray()
+            aapsLogger.debug(LTag.VOICECOMMAND, "Command received: " + receivedCommand)
+            messages.add("Command received: " + receivedCommand)
             fullCommandReceived = true
+            cleanedCommand = processReplacements(receivedCommand)
+            spokenCommandArray = cleanedCommand.split(Regex("\\s+")).toTypedArray()
+
+        } else {
+            userFeedback("I did not receive the command. Try again?", false)
+            return
         }
 
         if (requireIdentifier as Boolean) {
-            if (fullCommandReceived) {
-                if (!patientMatch(spokenCommandArray)) {
-                    userFeedback("You need to specify the person's name when asking. Try again?", false)
-                    return
-                }
-            } else {
-                userFeedback("I did not receive the person's name. Try again?", false)
+            if (!cleanedCommand.contains(patientName)) {
+                userFeedback("You need to specify the person's name when asking. Try again?", false)
                 return
             }
         }
 
-        val requestType: String? = intent.getStringExtra("requesttype")
-        if (requestType == null) {
-            userFeedback("I did not receive the request type. Try again?")
+        identifyRequestType(cleanedCommand)
+    }
+
+    private fun identifyRequestType(command: String) {
+
+        if (command == "") {
+            userFeedback("Something went wrong with processing the command. Try again?")
             return
         }
-        aapsLogger.debug(LTag.VOICECOMMAND, "Received request type: " + requestType + ".")
 
-        when (requestType) {
-            "carbrequest" ->
-                requestCarbs(intent)
-            "carbconfirm" ->
-                processCarbs(intent)
-            "bolusrequest" ->
-                requestBolus(intent)
-            "bolusconfirm" ->
-                processBolus(intent)
-            "profileswitchrequest" ->
-                requestProfileSwitch(intent)
-            "profileswitchconfirm" ->
-                processProfileSwitch(intent)
-            "inforequest" ->
-                processInfoRequest()
-            "calculate" ->
-                calculateBolus(intent)
-            }
+        if (command.contains("inforequest")) { processInfoRequest() ; return }
+        if (command.contains("carb") && command.contains("grams")) { requestCarbs() ; return }
+        if (command.contains("bolus") && command.contains("units")) { requestBolus() ; return }
+        if (command.contains("profile")) { requestProfileSwitch() ; return }
+        if (command.contains("calculate")) { calculateBolus() ; return }
     }
 
 
     //////////////////// action request functions section /////////////////////////////
 
-    private fun requestCarbs(intent: Intent) {
+    private fun requestCarbs() {
 
-        val amount = intent.getStringExtra("amount")
-        if ("amount" != null) {
-            aapsLogger.debug(LTag.VOICECOMMAND, "Received initial carb request containing: " + amount)
-        } else {
-            userFeedback("I did not receive the carb amount. Try again?",false)
-            return
+        var amount = ""
+        for (x in 0 until spokenCommandArray.size) {
+            if (spokenCommandArray[x] == "grams") amount = spokenCommandArray[x-1]
         }
-        val splitted = amount.split(Regex("\\s+")).toTypedArray()
-        val converted = convertToDigit(splitted[0])
-        val cleaned = converted.replace("g", "", true)  //sometimes Google interprets "25 grams" as "25g". Need to get rid of the g.
-        aapsLogger.debug(LTag.VOICECOMMAND, "Carb amount parsed to " + cleaned)
-        val gramsRequest = SafeParse.stringToInt(cleaned)
+        val gramsRequest = SafeParse.stringToInt(amount)
         val grams = constraintChecker.applyCarbsConstraints(Constraint(gramsRequest)).value()
         if (gramsRequest != grams) {
             userFeedback(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "carb", gramsRequest.toString(), grams.toString()))
             return
         }
         if (grams == 0) {
-            userFeedback("Zero grams requested. Aborting.",false)
+            userFeedback("Zero grams requested. Aborting.", false)
             return
         }
         var replyText = "To confirm adding " + grams + "grams of carb"
         if (patientName != "") replyText += " for " + patientName
         replyText += ", say Yes."
-        userFeedback(replyText, true, "carbconfirm", grams.toString(), patientName)
+        val parameters = "carbconfirm;" + grams.toString()
+        userFeedback(replyText, true, parameters)
     }
 
     private fun processCarbs(intent: Intent) {
 
-        val gramsReceived: String? = intent.getStringExtra("amount")
-        if (gramsReceived != null) {
-            val splitted = gramsReceived.split(kotlin.text.Regex("\\s+")).toTypedArray()
-            val grams = splitted[0]
+        val parameters: String? = intent.getStringExtra("parameters")
+        if (parameters != null) {
+            val splitted = parameters.split(Regex(";")).toTypedArray()
+            val grams = splitted[1]
             aapsLogger.debug(LTag.VOICECOMMAND, String.format(resourceHelper.gs(R.string.voiceassistant_carbslog), grams))
             val detailedBolusInfo = DetailedBolusInfo()
             detailedBolusInfo.carbs = grams.toDouble()
@@ -232,7 +242,7 @@ class VoiceAssistantPlugin @Inject constructor(
                             val recipient: String? = intent.getStringExtra("recipient")
                             if (recipient != null && recipient != "") replyText += " for " + recipient + "."
                         }
-                        userFeedback(replyText,false)
+                        userFeedback(replyText, false)
                     }
                 })
             } else {
@@ -242,14 +252,14 @@ class VoiceAssistantPlugin @Inject constructor(
                     val recipient: String? = intent.getStringExtra("recipient")
                     if (recipient != null && recipient != "") replyText += " for " + recipient + "."
                 }
-                userFeedback(replyText,false)
+                userFeedback(replyText, false)
             }
         }
     }
 
-    private fun requestProfileSwitch(intent: Intent) {
+    private fun requestProfileSwitch() {
 
-        userFeedback("I don't do profile switches yet.",false)
+        userFeedback("I don't do profile switches yet.", false)
         return
 
     }
@@ -257,58 +267,46 @@ class VoiceAssistantPlugin @Inject constructor(
     private fun processProfileSwitch(intent: Intent) {
 
         //treatmentsPlugin.doProfileSwitch(duration, percentage, timeshift)
-        userFeedback("I don't do profile switches yet.",false)
+        userFeedback("I don't do profile switches yet.", false)
         return
     }
 
-    private fun requestBolus(intent: Intent) {
+    private fun requestBolus() {
 
-        val amount = intent.getStringExtra("amount")
-        if (amount != null) {
-            aapsLogger.debug(LTag.VOICECOMMAND, "Processing bolus request")
-        } else {
-            userFeedback("I did not receive the amount. Try again?",false)
-            return
+        var amount = ""
+        for (x in 0 until spokenCommandArray.size) {
+            if (spokenCommandArray[x] == "units") amount = spokenCommandArray[x-1]
         }
-        val splitted = amount.split(Regex("\\s+")).toTypedArray()
-        val converted = convertToDigit(splitted[0])
-        val cleaned = converted.replace("u", "", true)  //sometimes Google interprets "2 units" as "2u". Need to get rid of the u.
-        val bolusRequest = SafeParse.stringToDouble(cleaned)
+        val bolusRequest = SafeParse.stringToDouble(amount)
         val bolus = constraintChecker.applyBolusConstraints(Constraint(bolusRequest)).value()
         if (bolusRequest != bolus) {
-            userFeedback(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "bolus", bolusRequest.toString(), bolus.toString()),false)
+            userFeedback(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "bolus", bolusRequest.toString(), bolus.toString()), false)
             return
         }
         if (bolus == 0.0) {
             userFeedback("Zero units requested. Aborting.", false)
             return
         }
-
         var meal = false
-        for (x in 0 until spokenCommandArray.size) {
-            if (spokenCommandArray[x].contains("meal", true)) meal = true
-        }
+        if (cleanedCommand.contains("meal", true)) meal = true
 
         var replyText = "To confirm delivery of " + bolus + "units of insulin"
         if (patientName != "") replyText += " for " + patientName
         replyText += ", say Yes."
-        userFeedback(replyText,true,"bolusconfirm", bolus.toString(), patientName)
-
+        val parameters = "bolusconfirm;" + bolus.toString() + ";" + meal.toString()
+        userFeedback(replyText, true, parameters)
     }
 
     private fun processBolus(intent: Intent) {
 
         var isMeal = false
-        val unitsReceived: String? = intent.getStringExtra("amount")
-//        val meal = intent.getStringExtra("meal")
-//        if (meal != null) {
-//            if (meal == "true") isMeal = true
-//        }
-        if (unitsReceived != null) {
-            val splitted = unitsReceived.split(kotlin.text.Regex("\\s+")).toTypedArray()
-            val units = splitted[0]
+        val parameters: String? = intent.getStringExtra("parameters")
+        if (parameters != null) {
+        val splitted = parameters.split(Regex(";")).toTypedArray()
+        val unitsReceived = splitted[1]
+        isMeal = splitted[2].toBoolean()
             val detailedBolusInfo = DetailedBolusInfo()
-            detailedBolusInfo.insulin = SafeParse.stringToDouble(units)
+            detailedBolusInfo.insulin = SafeParse.stringToDouble(unitsReceived)
             detailedBolusInfo.source = Source.USER
             commandQueue.bolus(detailedBolusInfo, object : Callback() {
                 override fun run() {
@@ -355,10 +353,9 @@ class VoiceAssistantPlugin @Inject constructor(
         }
     }
 
-
     ////////////////////// Information request function section  ///////////////////////////////////////////
 
-    private fun calculateBolus(intent: Intent) {
+    private fun calculateBolus() {
         userFeedback("I don't do bolus calculations yet.")
         return
     }
@@ -388,14 +385,14 @@ class VoiceAssistantPlugin @Inject constructor(
                 if (spokenCommandArray[x].contains("summary", true))  reply += returnGlucose() + returnDelta() + returnIOB() + returnCOB() + returnStatus()
             }
         } else {
-            userFeedback("I did not get your full request. Try again?",false)
+            userFeedback("I did not get your full request. Try again?", false)
             return
         }
         if (reply == "") {
-            userFeedback("I could not understand what you were asking for. Try again?",false)
+            userFeedback("I could not understand what you were asking for. Try again?", false)
             return
         }
-        userFeedback(reply,false)
+        userFeedback(reply, false)
     }
 
     private fun returnGlucose(): String {
@@ -473,7 +470,7 @@ class VoiceAssistantPlugin @Inject constructor(
 
     //////////////////////////////// utility function section //////////////////////////////
 
-    private fun userFeedback(message: String, needsResponse: Boolean = false, type: String = "", amount: String = "", recipient: String = "") {
+    private fun userFeedback(message: String, needsResponse: Boolean = false, parameters: String = "") {
 
         //requires a 3rd party software such as Tasker to receive the intent with action "info.nightscout.androidaps.USER_FEEDBACK"
         //and speak the "message" contained in the extras.
@@ -485,9 +482,7 @@ class VoiceAssistantPlugin @Inject constructor(
         if (needsResponse) {
             context.sendBroadcast(
                 Intent(Intents.USER_FEEDBACK_RESPONSE) // "info.nightscout.androidaps.USER_FEEDBACK_RESPONSE"
-                    .putExtra("requesttype", type)
-                    .putExtra("amount", amount)
-                    .putExtra("recipient", recipient)
+                    .putExtra("parameters", parameters)
                     .putExtra("message", message)
             )
         } else {
@@ -498,19 +493,10 @@ class VoiceAssistantPlugin @Inject constructor(
         }
     }
 
-    private fun patientMatch(wordArray: Array<String>): Boolean {
-
-        var returnCode = false
-        aapsLogger.debug(LTag.VOICECOMMAND, patientName)
-        for (x in 0 until wordArray.size) {
-            //aapsLogger.debug(LTag.VOICECOMMAND, "Command word " + x + " is " + wordArray[x])
-            if (wordArray[x].contains(patientName, true)) returnCode = true
-        }
-        return returnCode
-    }
-
-    private fun convertToDigit(string: String): String {
+    private fun processReplacements(string: String): String {
         var output = string
+
+        //step 1: numbers
         output.replace("zero", "0", true)
         output.replace("one", "1", true)
         output.replace("two", "2", true)
@@ -521,6 +507,50 @@ class VoiceAssistantPlugin @Inject constructor(
         output.replace("seven", "7", true)
         output.replace("eight", "8", true)
         output.replace("nine", "9", true)
-        return output
+
+        aapsLogger.debug(LTag.VOICECOMMAND, "Updated command at step 1: " + output)
+
+        //step 2: split numbers and units, such as 25g to 25 g
+        output.replace("(\\d)([A-Za-z])".toRegex(), "$1 $2")
+        output.replace("(\\d)(%)".toRegex(), "$1 $2")
+        aapsLogger.debug(LTag.VOICECOMMAND, "Updated command at step 2: " + output)
+
+        //step 3: replace units abbreviations with words
+        output.replace(" g ", " grams ")
+        output.replace(" % ", " percent ")
+        output.replace(" u ", " units ")
+        aapsLogger.debug(LTag.VOICECOMMAND, "Updated command at step 3: " + output)
+
+        //step 4: user defined replacements
+        var wordArray: Array<String>
+
+        //bolus
+        if (bolusReplacements != "") {
+            wordArray = bolusReplacements.split(Regex(";")).toTypedArray()
+            for (x in 0 until wordArray.size) {
+                output.replace(wordArray[x], "bolus", true)
+            }
+        }
+
+        //carb
+        if (carbReplacements != "") {
+            wordArray = carbReplacements.split(Regex(";")).toTypedArray()
+            for (x in 0 until wordArray.size) {
+                output.replace(wordArray[x], "carb", true)
+            }
+        }
+
+        //inforequest
+        if (infoRequestReplacements != "") {
+            wordArray = infoRequestReplacements.split(Regex(";")).toTypedArray()
+            for (x in 0 until wordArray.size) {
+                output.replace(wordArray[x], "inforequest", true)
+            }
+        }
+
+        aapsLogger.debug(LTag.VOICECOMMAND, "Updated command at step 4: " + output)
+
+        return output // cleanedCommand
     }
+
 }

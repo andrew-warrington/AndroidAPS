@@ -22,7 +22,7 @@ class VoiceAssistantActivity : NoSplashAppCompatActivity() {
 
         if (intent != null) {
             aapsLogger.debug(LTag.VOICECOMMAND, "Voice assistant command received")
-            voiceAssistantPlugin.processVoiceCommand(intent)
+            voiceAssistantPlugin.processCommand(intent)
         }
         finish()
     }

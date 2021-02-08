@@ -1385,7 +1385,7 @@
     <string name="description_voiceassistant">Enables voice commands via a voice assistant, using third party apps Tasker and AutoVoice.</string>
     <string name="key_voiceassistant_commandsallowed" translatable="false">voiceassistant_commandsallowed</string>
     <string name="voiceassistant_commandsallowed">Allow control via a voice assistant</string>
-    <string name="voiceassistant_carbslog">Received request to enter %1$s g of carb.</string>
+    <string name="voiceassistant_carbslog">Received confirmed request to enter %1$s g of carb.</string>
     <string name="voiceassistant_carbsset">Carb %1$s grams entered successfully.</string>
     <string name="voiceassistant_carbsfailed">Entering %1$d grams of carb failed.</string>
     <string name="voiceassistant_constraintresult">Your %1s request of %2s is higher than the configured maximum of %3s. Aborting.</string>
@@ -1398,5 +1398,20 @@
     <string name="voiceassistant_requireidentifier_summary">Speak the patient\'s name with the command to ensure it goes to the right person when there are multiple AndroidAPS users in the same place. Set patient name in Preferences -> General.</string>
     <string name="voiceassistant_requireidentifier">Require patient name (recommended)</string>
     <string name="voiceassistant_commandsallowed_summary">Requires third party apps Tasker and AutoVoice. See documentation.</string>
+    <string name="key_voiceassistant_inforequests" translatable="false">key_voiceassistant_inforequests</string>
+    <string name="voiceassistant_inforequests_summary">These word combinations will inform AndroidAPS that you are asking for information (e.g. what is my insulin on board?) and not commanding it to do something (e.g. deliver insulin).</string>
+    <string name="voiceassistant_inforequests">Info request trigger phrases</string>
+    <string name="voiceassistant_inforequests_defaults">tell me;what is;what\'s;get me;could I get;may I get;can I get</string>
+    <string name="key_voiceassistant_bolusreplacements" translatable="false">key_voiceassistant_bolusreplacements</string>
+    <string name="voiceassistant_bolusreplacements_summary">When the voice assistant hears any of these words, what you mean is \"bolus\".</string>
+    <string name="voiceassistant_bolusreplacements">Words to replace with \"bolus\"</string>
+    <string name="voiceassistant_bolusreplacements_defaults">bowls;bullous;bullar;wallace;wallis,deliver</string>
+    <string name="voiceassistant_carbreplacements_summary">When the voice assistant hears any of these words, what you mean is \"carb\".</string>
+    <string name="voiceassistant_carbreplacements">Words to replace with \"carb\"</string>
+    <string name="key_voiceassistant_carbreplacements" translatable="false">key_voiceassistant_carbreplacements</string>
+    <string name="voiceassistant_carbreplacements_defaults">car;carp;cart;curb;kerb;carpet;kebab;carbs;carbohydrate;carbohydrates</string>
+    <string name="key_voiceassistant_replacements" translatable="false">key_voiceassistant_replacements</string>
+    <string name="voiceassistant_replacements">Word replacements</string>
+    <string name="voiceassistant_replacements_summary">Help AndroidAPS understand what you meant when the voice assistant misinterprets what you have said.</string>
 
 </resources>
