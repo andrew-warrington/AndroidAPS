@@ -26,12 +26,6 @@
             android:summary="@string/voiceassistant_replacements_summary">
 
             <EditTextPreference
-                android:key="@string/key_voiceassistant_inforequests"
-                android:summary="@string/voiceassistant_inforequests_summary"
-                android:title="@string/voiceassistant_inforequests"
-                android:defaultValue="@string/voiceassistant_inforequests_defaults"/>
-
-            <EditTextPreference
                 android:key="@string/key_voiceassistant_bolusreplacements"
                 android:summary="@string/voiceassistant_bolusreplacements_summary"
                 android:title="@string/voiceassistant_bolusreplacements"
@@ -42,6 +36,12 @@
                 android:summary="@string/voiceassistant_carbreplacements_summary"
                 android:title="@string/voiceassistant_carbreplacements"
                 android:defaultValue="@string/voiceassistant_carbreplacements_defaults"/>
+
+            <EditTextPreference
+                android:key="@string/key_voiceassistant_inforequests"
+                android:summary="@string/voiceassistant_inforequests_summary"
+                android:title="@string/voiceassistant_inforequests"
+                android:defaultValue="@string/voiceassistant_inforequests_defaults"/>
 
         </androidx.preference.PreferenceScreen>
 

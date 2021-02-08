@@ -1399,8 +1399,8 @@
     <string name="voiceassistant_requireidentifier">Require patient name (recommended)</string>
     <string name="voiceassistant_commandsallowed_summary">Requires third party apps Tasker and AutoVoice. See documentation.</string>
     <string name="key_voiceassistant_inforequests" translatable="false">key_voiceassistant_inforequests</string>
-    <string name="voiceassistant_inforequests_summary">These word combinations will inform AndroidAPS that you are asking for information (e.g. what is my insulin on board?) and not commanding it to do something (e.g. deliver insulin).</string>
-    <string name="voiceassistant_inforequests">Info request trigger phrases</string>
+    <string name="voiceassistant_inforequests_summary">Customize the phrases that inform AndroidAPS that you want information (e.g. \"what is my insulin on board?\") and not action (e.g. \"deliver insulin\").</string>
+    <string name="voiceassistant_inforequests">Customize the phrases that inform AndroidAPS that you want information (e.g. \"what is my insulin on board?\") and not action (e.g. \"deliver insulin\").</string>
     <string name="voiceassistant_inforequests_defaults">tell me;what is;what\'s;get me;could I get;may I get;can I get</string>
     <string name="key_voiceassistant_bolusreplacements" translatable="false">key_voiceassistant_bolusreplacements</string>
     <string name="voiceassistant_bolusreplacements_summary">When the voice assistant hears any of these words, what you mean is \"bolus\".</string>
@@ -1409,9 +1409,9 @@
     <string name="voiceassistant_carbreplacements_summary">When the voice assistant hears any of these words, what you mean is \"carb\".</string>
     <string name="voiceassistant_carbreplacements">Words to replace with \"carb\"</string>
     <string name="key_voiceassistant_carbreplacements" translatable="false">key_voiceassistant_carbreplacements</string>
-    <string name="voiceassistant_carbreplacements_defaults">car;carp;cart;curb;kerb;carpet;kebab;carbs;carbohydrate;carbohydrates</string>
+    <string name="voiceassistant_carbreplacements_defaults">carp;cart;curb;kerb;carpet;kebab;carbs;carbohydrate;carbohydrates</string>
     <string name="key_voiceassistant_replacements" translatable="false">key_voiceassistant_replacements</string>
     <string name="voiceassistant_replacements">Word replacements</string>
-    <string name="voiceassistant_replacements_summary">Help AndroidAPS understand what you meant when the voice assistant misinterprets what you have said.</string>
+    <string name="voiceassistant_replacements_summary">Use word replacements to configure how AndroidAPS should interpret what your voice assistant is telling it. Helpful when your voice assistant keeps misunderstanding what you mean to say.</string>
 
 </resources>

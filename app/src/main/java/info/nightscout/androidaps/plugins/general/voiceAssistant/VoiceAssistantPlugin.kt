@@ -146,46 +146,47 @@ class VoiceAssistantPlugin @Inject constructor(
         // if the intent is to confirm an already-requested action, then jump straight to execution without further processing
         val parameters: String? = intent.getStringExtra("parameters")
         if (parameters != null) {
-            if (parameters.contains("carbconfirm")) { processCarbs(intent) ; return }
-            if (parameters.contains("bolusconfirm")) { processBolus(intent) ; return }
-            if (parameters.contains("profileswitchconfirm")) { processProfileSwitch(intent) ; return }
+            aapsLogger.debug(LTag.VOICECOMMAND, "Parameters are: " + parameters)
+            if (parameters.contains("carbconfirm", true)) { processCarbs(intent); return }
+            if (parameters.contains("bolusconfirm", true)) { processBolus(intent); return }
+            if (parameters.contains("profileswitchconfirm", true)) { processProfileSwitch(intent); return }
+        } else {
+            aapsLogger.debug(LTag.VOICECOMMAND, "No parameters received.")
         }
 
         val receivedCommand: String? = intent.getStringExtra("command")
         if (receivedCommand != null) {
             aapsLogger.debug(LTag.VOICECOMMAND, "Command received: " + receivedCommand)
-            messages.add("Command received: " + receivedCommand)
+            messages.add(dateUtil.timeString(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + "Command received: " + receivedCommand + "</b><br>")
             fullCommandReceived = true
             cleanedCommand = processReplacements(receivedCommand)
             spokenCommandArray = cleanedCommand.split(Regex("\\s+")).toTypedArray()
-
         } else {
-            userFeedback("I did not receive the command. Try again?", false)
+            userFeedback("I did not receive the command. Try again.", false)
             return
         }
 
         if (requireIdentifier as Boolean) {
             if (!cleanedCommand.contains(patientName, true)) {
-                userFeedback("You need to specify the person's name when asking. Try again?", false)
+                userFeedback("You need to specify the person's name when asking. Try again.", false)
                 return
             }
         }
-
         identifyRequestType(cleanedCommand)
     }
 
     private fun identifyRequestType(command: String) {
 
         if (command == "") {
-            userFeedback("Something went wrong with processing the command. Try again?")
+            userFeedback("Something went wrong with processing the command. Try again.")
             return
         }
-
         if (command.contains("inforequest")) { processInfoRequest() ; return }
         if (command.contains("carb") && command.contains("grams")) { requestCarbs() ; return }
         if (command.contains("bolus") && command.contains("units")) { requestBolus() ; return }
         if (command.contains("profile")) { requestProfileSwitch() ; return }
         if (command.contains("calculate")) { calculateBolus() ; return }
+        userFeedback("I did not understand the command. Try again.")
     }
 
 
@@ -207,10 +208,10 @@ class VoiceAssistantPlugin @Inject constructor(
             userFeedback("Zero grams requested. Aborting.", false)
             return
         }
-        var replyText = "To confirm adding " + grams + "grams of carb"
+        var replyText = "To confirm adding " + grams + " grams of carb"
         if (patientName != "") replyText += " for " + patientName
         replyText += ", say Yes."
-        val parameters = "carbconfirm;" + grams.toString()
+        val parameters = "carbconfirm;" + grams.toString() + ";" + patientName
         userFeedback(replyText, true, parameters)
     }
 
@@ -286,7 +287,7 @@ class VoiceAssistantPlugin @Inject constructor(
         var meal = false
         if (cleanedCommand.contains("meal", true)) meal = true
 
-        var replyText = "To confirm delivery of " + bolus + "units of insulin"
+        var replyText = "To confirm delivery of " + bolus + " units of insulin"
         if (patientName != "") replyText += " for " + patientName
         replyText += ", say Yes."
         val parameters = "bolusconfirm;" + bolus.toString() + ";" + meal.toString()
@@ -383,11 +384,11 @@ class VoiceAssistantPlugin @Inject constructor(
                 if (spokenCommandArray[x].contains("summary", true))  reply += returnGlucose() + returnDelta() + returnIOB() + returnCOB() + returnStatus()
             }
         } else {
-            userFeedback("I did not get your full request. Try again?", false)
+            userFeedback("I did not get your full request. Try again.", false)
             return
         }
         if (reply == "") {
-            userFeedback("I could not understand what you were asking for. Try again?", false)
+            userFeedback("I could not understand what you were asking for. Try again.", false)
             return
         }
         userFeedback(reply, false)
@@ -474,8 +475,8 @@ class VoiceAssistantPlugin @Inject constructor(
         //and speak the "message" contained in the extras.
         //messages also appear on the "VOICE" fragment in AndroidAPS.
 
-        messages.add(dateUtil.timeString(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + message + "Needs response: " + needsResponse + "</b><br>")
-        aapsLogger.debug(LTag.VOICECOMMAND, message + " Needs response: " + needsResponse)
+        messages.add(dateUtil.timeString(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + message + "</b><br>")
+        aapsLogger.debug(LTag.VOICECOMMAND, message)
 
         if (needsResponse) {
             context.sendBroadcast(
@@ -495,28 +496,27 @@ class VoiceAssistantPlugin @Inject constructor(
         var output = string
 
         //step 1: numbers
-        output.replace("zero", "0", true)
-        output.replace("one", "1", true)
-        output.replace("two", "2", true)
-        output.replace("three", "3", true)
-        output.replace("four", "4", true)
-        output.replace("five", "5", true)
-        output.replace("six", "6", true)
-        output.replace("seven", "7", true)
-        output.replace("eight", "8", true)
-        output.replace("nine", "9", true)
-
+        output = output.replace("zero", "0", true)
+        output = output.replace("one", "1", true)
+        output = output.replace("two", "2", true)
+        output = output.replace("three", "3", true)
+        output = output.replace("four", "4", true)
+        output = output.replace("five", "5", true)
+        output = output.replace("six", "6", true)
+        output = output.replace("seven", "7", true)
+        output = output.replace("eight", "8", true)
+        output = output.replace("nine", "9", true)
         aapsLogger.debug(LTag.VOICECOMMAND, "Updated command at step 1: " + output)
 
         //step 2: split numbers and units, such as 25g to 25 g
-        output.replace("(\\d)([A-Za-z])".toRegex(), "$1 $2")
-        output.replace("(\\d)(%)".toRegex(), "$1 $2")
+        output = output.replace("(\\d)([A-Za-z])".toRegex(), "$1 $2")
+        output = output.replace("(\\d)(%)".toRegex(), "$1 $2")
         aapsLogger.debug(LTag.VOICECOMMAND, "Updated command at step 2: " + output)
 
         //step 3: replace units abbreviations with words
-        output.replace(" g ", " grams ")
-        output.replace(" % ", " percent ")
-        output.replace(" u ", " units ")
+        output = output.replace(" g ", " grams ")
+        output = output.replace(" % ", " percent ")
+        output = output.replace(" u ", " units ")
         aapsLogger.debug(LTag.VOICECOMMAND, "Updated command at step 3: " + output)
 
         //step 4: user defined replacements
@@ -526,7 +526,7 @@ class VoiceAssistantPlugin @Inject constructor(
         if (bolusReplacements != "") {
             wordArray = bolusReplacements.split(Regex(";")).toTypedArray()
             for (x in 0 until wordArray.size) {
-                output.replace(wordArray[x], "bolus", true)
+                output = output.replace(wordArray[x], "bolus", true)
             }
         }
 
@@ -534,7 +534,7 @@ class VoiceAssistantPlugin @Inject constructor(
         if (carbReplacements != "") {
             wordArray = carbReplacements.split(Regex(";")).toTypedArray()
             for (x in 0 until wordArray.size) {
-                output.replace(wordArray[x], "carb", true)
+                output = output.replace(wordArray[x], "carb", true)
             }
         }
 
@@ -542,7 +542,7 @@ class VoiceAssistantPlugin @Inject constructor(
         if (infoRequestReplacements != "") {
             wordArray = infoRequestReplacements.split(Regex(";")).toTypedArray()
             for (x in 0 until wordArray.size) {
-                output.replace(wordArray[x], "inforequest", true)
+                output = output.replace(wordArray[x], "inforequest", true)
             }
         }
 
