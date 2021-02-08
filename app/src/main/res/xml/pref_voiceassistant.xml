@@ -25,19 +25,19 @@
             android:title="@string/voiceassistant_replacements"
             android:summary="@string/voiceassistant_replacements_summary">
 
-            <info.nightscout.androidaps.utils.textValidator.ValidatingEditTextPreference
+            <EditTextPreference
                 android:key="@string/key_voiceassistant_inforequests"
                 android:summary="@string/voiceassistant_inforequests_summary"
                 android:title="@string/voiceassistant_inforequests"
                 android:defaultValue="@string/voiceassistant_inforequests_defaults"/>
 
-            <info.nightscout.androidaps.utils.textValidator.ValidatingEditTextPreference
+            <EditTextPreference
                 android:key="@string/key_voiceassistant_bolusreplacements"
                 android:summary="@string/voiceassistant_bolusreplacements_summary"
                 android:title="@string/voiceassistant_bolusreplacements"
                 android:defaultValue="@string/voiceassistant_bolusreplacements_defaults"/>
 
-            <info.nightscout.androidaps.utils.textValidator.ValidatingEditTextPreference
+            <EditTextPreference
                 android:key="@string/key_voiceassistant_carbreplacements"
                 android:summary="@string/voiceassistant_carbreplacements_summary"
                 android:title="@string/voiceassistant_carbreplacements"
