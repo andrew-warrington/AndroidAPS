@@ -57,7 +57,6 @@ class VoiceAssistantPlugin @Inject constructor(
     private val context: Context,
     private val sp: SP,
     private val constraintChecker: ConstraintChecker,
-    private val preferenceFragment: PreferenceFragmentCompat,
     private val profileFunction: ProfileFunction,
     private val activePlugin: ActivePluginProvider,
     private val commandQueue: CommandQueueProvider,
