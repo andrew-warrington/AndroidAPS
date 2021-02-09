@@ -43,12 +43,6 @@
                 android:title="@string/voiceassistant_namereplacements"
                 android:defaultValue="@string/voiceassistant_namereplacements_defaults"/>
 
-            <EditTextPreference
-                android:key="@string/key_voiceassistant_inforequests"
-                android:summary="@string/voiceassistant_inforequests_summary"
-                android:title="@string/voiceassistant_inforequests"
-                android:defaultValue="@string/voiceassistant_inforequests_defaults"/>
-
         </androidx.preference.PreferenceScreen>
 
     </PreferenceCategory>
