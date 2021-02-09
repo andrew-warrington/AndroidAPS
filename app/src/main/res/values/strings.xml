@@ -1394,28 +1394,25 @@
     <string name="voiceassistant_mealbolusdelivered">Meal bolus %1$.2f units delivered successfully</string>
     <string name="voiceassistant_mealbolusdelivered_tt">Set target %1$s for %2$d minutes</string>
     <string name="voiceassistant_bolusfailed">Bolus failed</string>
-    <string name="key_voiceassistant_requireidentifier" translatable="false">key_voiceassistant_requireidentifier</string>
+    <string name="key_voiceassistant_requireidentifier" translatable="false">voiceassistant_requireidentifier</string>
     <string name="voiceassistant_requireidentifier_summary">Speak the patient\'s name with the command to ensure it goes to the right person when there are multiple AndroidAPS users in the same place. Set patient name in Preferences -> General.</string>
     <string name="voiceassistant_requireidentifier">Require patient name (recommended)</string>
     <string name="voiceassistant_commandsallowed_summary">Requires third party apps Tasker and AutoVoice. See documentation.</string>
-    <string name="key_voiceassistant_inforequests" translatable="false">key_voiceassistant_inforequests</string>
-    <string name="voiceassistant_inforequests_summary">These phrases are how you ask for information.</string>
-    <string name="voiceassistant_inforequests">These phrases are how you ask for information.</string>
-    <string name="voiceassistant_inforequests_defaults">tell me;what is;what\'s;get me;could I get;may I get;can I get;when was;when were;what was;what are;what were</string>
-    <string name="key_voiceassistant_bolusreplacements" translatable="false">key_voiceassistant_bolusreplacements</string>
-    <string name="voiceassistant_bolusreplacements_summary">When the voice assistant hears any of these words, what you mean is \"bolus\".</string>
-    <string name="voiceassistant_bolusreplacements">Words to replace with \"bolus\"</string>
-    <string name="voiceassistant_bolusreplacements_defaults">bowls;bullous;bullar;wallace;wallis,deliver</string>
-    <string name="voiceassistant_carbreplacements_summary">When the voice assistant hears any of these words, what you mean is \"carb\".</string>
-    <string name="voiceassistant_carbreplacements">Words to replace with \"carb\"</string>
-    <string name="key_voiceassistant_carbreplacements" translatable="false">key_voiceassistant_carbreplacements</string>
+    <string name="key_voiceassistant_bolusreplacements" translatable="false">voiceassistant_bolusreplacements</string>
+    <string name="voiceassistant_bolusreplacements_summary">Words which mean \"bolus\"</string>
+    <string name="voiceassistant_bolusreplacements">Words which mean \"bolus\"</string>
+    <string name="voiceassistant_bolusreplacements_defaults">bowls;bullous;bullar;wallace;wallis;deliver</string>
+    <string name="voiceassistant_carbreplacements_summary">Words which mean \"carb\"</string>
+    <string name="voiceassistant_carbreplacements">Words which mean \"carb\"</string>
+    <string name="key_voiceassistant_carbreplacements" translatable="false">voiceassistant_carbreplacements</string>
     <string name="voiceassistant_carbreplacements_defaults">carp;cart;curb;kerb;carpet;kebab;carbs;carbohydrate;carbohydrates</string>
-    <string name="voiceassistant_namereplacements_summary">When the voice assistant hears any of these words, what you are saying is the patient\' name.</string>
-    <string name="voiceassistant_namereplacements">Words to replace with the patient\'s name</string>
-    <string name="key_voiceassistant_namereplacements" translatable="false">key_voiceassistant_namereplacements</string>
+    <string name="voiceassistant_namereplacements_summary">Patient nicknames</string>
+    <string name="voiceassistant_namereplacements">Patient nicknames</string>
+    <string name="key_voiceassistant_namereplacements" translatable="false">voiceassistant_namereplacements</string>
     <string name="voiceassistant_namereplacements_defaults" />
-    <string name="key_voiceassistant_replacements" translatable="false">key_voiceassistant_replacements</string>
+    <string name="key_voiceassistant_replacements" translatable="false">voiceassistant_replacements</string>
     <string name="voiceassistant_replacements">Word replacements</string>
-    <string name="voiceassistant_replacements_summary">If your voice assistant consistently misunderstands you, you can use word replacements put indicate what you mean to say.</string>
+    <string name="voiceassistant_replacements_summary">Use word replacements to set up custom keywords or to fix problems with voice recognition.</string>
+    <string name="voicecommand_profile_not_configured">No profile is configured. Please create at least one profile.</string>
 
 </resources>
