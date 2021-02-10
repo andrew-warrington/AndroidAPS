@@ -537,13 +537,6 @@ class VoiceAssistantPlugin @Inject constructor(
             return resourceHelper.gs(R.string.voicecommand_profile_not_configured)
         }
 
-        if (cleanedCommand.contains("status", true)) {
-            val profileName = profileFunction.getProfileNameWithDuration()
-            if (profileName != null) {
-                output = "The current profile is " + profileName
-            }
-        }
-
         if (cleanedCommand.contains("list", true)) {
             val list = store.getProfileList()
             if (list.isEmpty()) output = resourceHelper.gs(R.string.voicecommand_profile_not_configured)
@@ -553,8 +546,16 @@ class VoiceAssistantPlugin @Inject constructor(
                     output += (i + 1).toString() + ". "
                     output += list[i]
                 }
+                output = "The profile list is, " + output
             }
         }
+
+        val profileName: String? = profileFunction.getProfileNameWithDuration()
+        if (profileName != null) {
+            //Andrew1(200%)(13')
+            output += "The current profile is " + profileName
+        }
+
         return output
     }
 
@@ -648,47 +649,40 @@ class VoiceAssistantPlugin @Inject constructor(
         //aapsLogger.debug(LTag.VOICECOMMAND, "Updated command at step 2: " + output)
 
         //step 3: replace units abbreviations with words
-        output = output.replace(" g ", " grams ")
-        output = output.replace(" % ", " percent ")
-        output = output.replace(" u ", " units ")
+        output = output.replace(" g ", " grams ", true)
+        output = output.replace(" % ", " percent ", true)
+        output = output.replace(" u ", " units ", true)
+        output = output.replace(" ' "," minute ", true)
+        output = output.replace(" m ", " minute ", true)
+        output = output.replace(" h ", " hour ", true)
         //aapsLogger.debug(LTag.VOICECOMMAND, "Updated command at step 3: " + output)
 
         //step 4: user defined replacements
         var wordArray: Array<String>
 
         //bolus
-        aapsLogger.debug(LTag.VOICECOMMAND, "bolusReplacements are: " + bolusReplacements)
         if (bolusReplacements != "") {
             wordArray = bolusReplacements.trim().split(Regex(";")).toTypedArray()
             for (x in 0 until wordArray.size) {
-                aapsLogger.debug(LTag.VOICECOMMAND, "Word " + x + " is " + wordArray[x])
                 output = output.replace(wordArray[x], "bolus", true)
             }
         }
-        aapsLogger.debug(LTag.VOICECOMMAND, "output is: " + output)
 
         //carb
-        aapsLogger.debug(LTag.VOICECOMMAND, "carbReplacements are: " + carbReplacements)
         if (carbReplacements != "") {
             wordArray = carbReplacements.trim().split(Regex(";")).toTypedArray()
             for (x in 0 until wordArray.size) {
-                aapsLogger.debug(LTag.VOICECOMMAND, "Word " + x + " is " + wordArray[x])
                 output = output.replace(wordArray[x], "carb", true)
             }
         }
-        aapsLogger.debug(LTag.VOICECOMMAND, "output is: " + output)
 
         //name
-        aapsLogger.debug(LTag.VOICECOMMAND, "nameReplacements are: " + nameReplacements)
         if (nameReplacements != "") {
             wordArray = nameReplacements.trim().split(Regex(";")).toTypedArray()
             for (x in 0 until wordArray.size) {
-                aapsLogger.debug(LTag.VOICECOMMAND, "Word " + x + " is " + wordArray[x])
                 output = output.replace(wordArray[x], patientName, true)
             }
         }
-        aapsLogger.debug(LTag.VOICECOMMAND, "output is: " + output)
-
         aapsLogger.debug(LTag.VOICECOMMAND, "Command after word replacements: " + output)
 
         return output // cleanedCommand
