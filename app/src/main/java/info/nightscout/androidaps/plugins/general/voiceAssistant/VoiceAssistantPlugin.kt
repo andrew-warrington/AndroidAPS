@@ -317,14 +317,15 @@ class VoiceAssistantPlugin @Inject constructor(
 
         val profile = store.getSpecificProfile(list[SafeParse.stringToInt(pindex) - 1] as String)
 
-        val profileName: String? = profileFunction.getProfileNameWithDuration()
+        val profileName: String? = profileFunction.getProfileName()
 
         if (profile == null) {
             userFeedback("I could not load your profile. Try again.")
             return
         }
 
-        var replyText = "To confirm profile switch to " + profileName + " at " + percentage + " percent, for " + duration + " minutes, "
+        var replyText = "To confirm profile switch to " + profileName + " at " + percentage + " percent,"
+        if (duration != 0) replyText += "for " + duration.toString() + " minutes,"
         if (patientName != "") replyText += " for " + patientName + ", "
         replyText += "say Yes."
         val counter: Long = DateUtil.now() / 30000L
@@ -348,7 +349,7 @@ class VoiceAssistantPlugin @Inject constructor(
             val pindex = SafeParse.stringToInt(splitted[2])
             val percentage = SafeParse.stringToInt(splitted[3])
             val duration = SafeParse.stringToInt(splitted[4])
-            aapsLogger.debug(LTag.VOICECOMMAND, "Received profile switch command for profile " + pindex + ", " + percentage + "%, " + duration + "minutes.")
+            aapsLogger.debug(LTag.VOICECOMMAND, "Received profile switch command for profile " + pindex + ", " + percentage + "%, " + duration + " minutes.")
 
             val anInterface = activePlugin.activeProfileInterface
             val store = anInterface.profile
