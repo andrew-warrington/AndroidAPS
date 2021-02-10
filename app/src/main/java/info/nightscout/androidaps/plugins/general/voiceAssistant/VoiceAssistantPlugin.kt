@@ -119,25 +119,6 @@ class VoiceAssistantPlugin @Inject constructor(
         }
     }
 
-    private fun processSettings(ev: EventPreferenceChange?) {
-        if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_requireidentifier)) {
-            requireIdentifier = sp.getBoolean(R.string.key_voiceassistant_requireidentifier, true)
-            if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Require patient name set to " + requireIdentifier)
-        }
-        if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_bolusreplacements)) {
-            bolusReplacements = sp.getString(R.string.key_voiceassistant_bolusreplacements,"")
-            if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Bolus word replacements set to " + bolusReplacements)
-        }
-        if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_carbreplacements)) {
-            carbReplacements = sp.getString(R.string.key_voiceassistant_carbreplacements,"")
-            if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Carb word replacements set to " + carbReplacements)
-        }
-        if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_namereplacements)) {
-            nameReplacements = sp.getString(R.string.key_voiceassistant_namereplacements, "")
-            if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Name replacements set to " + nameReplacements)
-        }
-    }
-
     fun processCommand(intent: Intent) {
 
         if (!isEnabled(PluginType.GENERAL)) {
@@ -675,41 +656,48 @@ class VoiceAssistantPlugin @Inject constructor(
         output = output.replace(" g ", " grams ", true)
         output = output.replace(" % ", " percent ", true)
         output = output.replace(" u ", " units ", true)
-        output = output.replace(" ' "," minute ", true)
-        output = output.replace(" m ", " minute ", true)
+        output = output.replace(" ' "," minutes ", true)
+        output = output.replace(" m ", " minutes ", true)
         output = output.replace(" h ", " hour ", true)
         output = output.replace("-", " ", true)
         //aapsLogger.debug(LTag.VOICECOMMAND, "Updated command at step 3: " + output)
 
         //step 4: user defined replacements
-        var wordArray: Array<String>
+        if (bolusReplacements != "") output = processUserReplacements(output, bolusReplacements,"bolus")
+        if (carbReplacements != "") output = processUserReplacements(output, carbReplacements,"carb")
+        if (nameReplacements != "") output = processUserReplacements(output, nameReplacements, patientName)
 
-        //bolus
-        if (bolusReplacements != "") {
-            wordArray = bolusReplacements.trim().split(Regex(";")).toTypedArray()
-            for (x in 0 until wordArray.size) {
-                output = output.replace(wordArray[x], "bolus", true)
-            }
-        }
-
-        //carb
-        if (carbReplacements != "") {
-            wordArray = carbReplacements.trim().split(Regex(";")).toTypedArray()
-            for (x in 0 until wordArray.size) {
-                output = output.replace(wordArray[x], "carb", true)
-            }
-        }
-
-        //name
-        if (nameReplacements != "") {
-            wordArray = nameReplacements.trim().split(Regex(";")).toTypedArray()
-            for (x in 0 until wordArray.size) {
-                output = output.replace(wordArray[x], patientName, true)
-            }
-        }
         aapsLogger.debug(LTag.VOICECOMMAND, "Command after word replacements: " + output)
 
         return output // cleanedCommand
+    }
+
+    private fun processUserReplacements(command: String, replacementWords:String, newWord:String): String {
+        var output = ""
+
+        var wordArray: Array<String> = replacementWords.trim().split(Regex(";")).toTypedArray()
+        for (x in 0 until wordArray.size) output = command.replace(wordArray[x], patientName, true)
+
+        return output
+    }
+
+    private fun processSettings(ev: EventPreferenceChange?) {
+        if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_requireidentifier)) {
+            requireIdentifier = sp.getBoolean(R.string.key_voiceassistant_requireidentifier, true)
+            if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Require patient name set to " + requireIdentifier)
+        }
+        if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_bolusreplacements)) {
+            bolusReplacements = sp.getString(R.string.key_voiceassistant_bolusreplacements,"")
+            if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Bolus word replacements set to " + bolusReplacements)
+        }
+        if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_carbreplacements)) {
+            carbReplacements = sp.getString(R.string.key_voiceassistant_carbreplacements,"")
+            if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Carb word replacements set to " + carbReplacements)
+        }
+        if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_namereplacements)) {
+            nameReplacements = sp.getString(R.string.key_voiceassistant_namereplacements, "")
+            if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Name replacements set to " + nameReplacements)
+        }
     }
 
 }
