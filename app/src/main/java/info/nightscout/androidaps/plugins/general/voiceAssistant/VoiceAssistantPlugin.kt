@@ -27,9 +27,6 @@ import info.nightscout.androidaps.logging.AAPSLogger
 import info.nightscout.androidaps.logging.LTag
 import info.nightscout.androidaps.plugins.bus.RxBusWrapper
 import info.nightscout.androidaps.plugins.configBuilder.ConstraintChecker
-import info.nightscout.androidaps.plugins.general.smsCommunicator.AuthRequest
-import info.nightscout.androidaps.plugins.general.smsCommunicator.Sms
-import info.nightscout.androidaps.plugins.general.smsCommunicator.SmsAction
 import info.nightscout.androidaps.plugins.general.smsCommunicator.otp.OneTimePassword
 import info.nightscout.androidaps.plugins.general.smsCommunicator.otp.OneTimePasswordValidationResult
 import info.nightscout.androidaps.plugins.iob.iobCobCalculator.GlucoseStatus
@@ -316,13 +313,19 @@ class VoiceAssistantPlugin @Inject constructor(
         val duration = SafeParse.stringToInt(durationMin) + (SafeParse.stringToInt(durationHour) * 60)
 
         val profile = store.getSpecificProfile(list[SafeParse.stringToInt(pindex) - 1] as String)
-
-        val profileName: String? = profileFunction.getProfileName()
-
         if (profile == null) {
             userFeedback("I could not load your profile. Try again.")
             return
         }
+
+        var profileName: String? = profileFunction.getProfileName()
+        if (profileName != null) {
+            profileName.replace("//(.*//)".toRegex(RegexOption.IGNORE_CASE), "")
+        } else {
+            userFeedback("I could not get your profile name. Try again.")
+            return
+        }
+
 
         var replyText = "To confirm profile switch to " + profileName + " at " + percentage + " percent,"
         if (duration != 0) replyText += "for " + duration.toString() + " minutes,"
@@ -335,7 +338,6 @@ class VoiceAssistantPlugin @Inject constructor(
     }
 
     private fun processProfileSwitch(intent: Intent) {
-    //treatmentsPlugin.doProfileSwitch(duration, percentage, timeshift)
         val parameters: String? = intent.getStringExtra("parameters")
         if (parameters != null) {
             val splitted = parameters.split(Regex(";")).toTypedArray()
@@ -545,21 +547,38 @@ class VoiceAssistantPlugin @Inject constructor(
             if (list.isEmpty()) output = resourceHelper.gs(R.string.voicecommand_profile_not_configured)
             else {
                 for (i in list.indices) {
-                    if (i > 0) output += "\n"
+                    if (i > 0) output += ", "
                     output += (i + 1).toString() + ". "
                     output += list[i]
                 }
                 output = "The profile list is, " + output + "."
             }
-        }
+        } else {
 
-        val profileName: String? = profileFunction.getProfileNameWithDuration()
-        if (profileName != null) {
-            //MyProfile(150%)(13')
-            output += "The current profile is " + profileName
-            if (profileName.contains("\'")) output += " minutes remaining."
-        }
+            var profileInfo: String?
+                profileInfo = profileFunction.getProfileNameWithDuration()
+                //e.g. MyProfile(150%)(1h 13')
 
+            if (profileInfo != null) {
+
+                aapsLogger.debug(LTag.VOICECOMMAND, profileInfo)
+
+                profileInfo = profileInfo.replace("(", ", ", true).replace(")", "", true)
+                //MyProfile, 150%, 1h 13'
+
+                profileInfo = profileInfo.replace("([0-9])(h)".toRegex(RegexOption.IGNORE_CASE), "$1 hours")
+                profileInfo = profileInfo.replace("([0-9])(\')".toRegex(RegexOption.IGNORE_CASE), "$1 minutes")
+                profileInfo = profileInfo.replace("([0-9])(\\shours\\s)([0-9])".toRegex(RegexOption.IGNORE_CASE), "$1 hours and $3")
+                //MyProfile, 150%, 1 hours and 13 minutes
+
+                if (profileInfo.contains("hours") || profileInfo.contains("minutes")) profileInfo += " remaining."
+                //MyProfile, 150%, 1 hours and 13 minutes remaining.
+
+                aapsLogger.debug(LTag.VOICECOMMAND, profileInfo)
+
+                output += "The current profile is " + profileInfo
+            }
+        }
         return output
     }
 
