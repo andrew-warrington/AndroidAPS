@@ -320,12 +320,12 @@ class VoiceAssistantPlugin @Inject constructor(
 
         var profileName: String? = profileFunction.getProfileName()
         if (profileName != null) {
-            profileName.replace("//(.*//)".toRegex(RegexOption.IGNORE_CASE), "")
+            profileName.replace("//((.*)//)".toRegex(RegexOption.IGNORE_CASE), "")
+            // delete anything in brackets to get the basic profile name.
         } else {
             userFeedback("I could not get your profile name. Try again.")
             return
         }
-
 
         var replyText = "To confirm profile switch to " + profileName + " at " + percentage + " percent,"
         if (duration != 0) replyText += "for " + duration.toString() + " minutes,"
