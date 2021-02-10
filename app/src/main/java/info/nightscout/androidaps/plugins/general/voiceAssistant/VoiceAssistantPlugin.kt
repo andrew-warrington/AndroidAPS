@@ -170,7 +170,7 @@ class VoiceAssistantPlugin @Inject constructor(
             messages.add(dateUtil.timeStringWithSeconds(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + "Command received: " + receivedCommand + "</b><br>")
             fullCommandReceived = true
 
-            if (receivedCommand.toLowerCase(Locale.ROOT) == "no" || receivedCommand.contains("abort", true) || receivedCommand.contains("cancel",true)) return
+            if (receivedCommand.toLowerCase(Locale.ROOT) == "no" || receivedCommand.toLowerCase(Locale.ROOT) == "stop" || receivedCommand.contains("abort", true) || receivedCommand.contains("cancel",true)) return
             //any negative command coming through should stop further processing.
 
             cleanedCommand = processReplacements(receivedCommand)
@@ -317,12 +317,14 @@ class VoiceAssistantPlugin @Inject constructor(
 
         val profile = store.getSpecificProfile(list[SafeParse.stringToInt(pindex) - 1] as String)
 
+        val profileName: String? = profileFunction.getProfileNameWithDuration()
+
         if (profile == null) {
             userFeedback("I could not load your profile. Try again.")
             return
         }
 
-        var replyText = "To confirm profile switch to " + profile + " at " + percentage + " for " + duration
+        var replyText = "To confirm profile switch to " + profileName + " at " + percentage + " for " + duration
         if (patientName != "") replyText += " for " + patientName
         replyText += ", say Yes."
         val counter: Long = DateUtil.now() / 30000L
@@ -546,14 +548,15 @@ class VoiceAssistantPlugin @Inject constructor(
                     output += (i + 1).toString() + ". "
                     output += list[i]
                 }
-                output = "The profile list is, " + output
+                output = "The profile list is, " + output + "."
             }
         }
 
         val profileName: String? = profileFunction.getProfileNameWithDuration()
         if (profileName != null) {
-            //Andrew1(200%)(13')
+            //MyProfile(150%)(13')
             output += "The current profile is " + profileName
+            if (profileName.contains("\'")) output += " minutes remaining."
         }
 
         return output
@@ -655,6 +658,7 @@ class VoiceAssistantPlugin @Inject constructor(
         output = output.replace(" ' "," minute ", true)
         output = output.replace(" m ", " minute ", true)
         output = output.replace(" h ", " hour ", true)
+        output = output.replace("-", " ", true)
         //aapsLogger.debug(LTag.VOICECOMMAND, "Updated command at step 3: " + output)
 
         //step 4: user defined replacements
