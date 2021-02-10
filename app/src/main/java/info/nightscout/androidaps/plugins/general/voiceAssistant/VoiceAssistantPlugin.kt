@@ -324,9 +324,9 @@ class VoiceAssistantPlugin @Inject constructor(
             return
         }
 
-        var replyText = "To confirm profile switch to " + profileName + " at " + percentage + " for " + duration
-        if (patientName != "") replyText += " for " + patientName
-        replyText += ", say Yes."
+        var replyText = "To confirm profile switch to " + profileName + " at " + percentage + " percent, for " + duration + " minutes, "
+        if (patientName != "") replyText += " for " + patientName + ", "
+        replyText += "say Yes."
         val counter: Long = DateUtil.now() / 30000L
         val parameters = "profileswitchconfirm;" + totp.generateOneTimePassword(counter) + ";" + pindex + ";" + percentage.toString() + ";" + duration.toString() + ";" + patientName
 
