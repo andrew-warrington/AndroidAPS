@@ -573,8 +573,6 @@ class VoiceAssistantPlugin @Inject constructor(
 
             if (profileInfo != null) {
 
-                aapsLogger.debug(LTag.VOICECOMMAND, profileInfo)
-
                 profileInfo = profileInfo.replace("(", ", ", true).replace(")", "", true)
                 //MyProfile, 150%, 1h 13'
 
@@ -585,8 +583,6 @@ class VoiceAssistantPlugin @Inject constructor(
 
                 if (profileInfo.contains("hours") || profileInfo.contains("minutes")) profileInfo += " remaining."
                 //MyProfile, 150%, 1 hours and 13 minutes remaining.
-
-                aapsLogger.debug(LTag.VOICECOMMAND, profileInfo)
 
                 output += "The current profile is " + profileInfo
             }
