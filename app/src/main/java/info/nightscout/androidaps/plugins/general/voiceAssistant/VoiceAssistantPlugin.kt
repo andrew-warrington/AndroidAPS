@@ -7,6 +7,8 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 //TODO Additional commands
 //TODO make the Voice fragment content persistent through application restarts & reboots
 //TODO get text validation to ensure only alpha + ; in the prefs screen for word replacements
+//TODO get word replacements prefs screen to automatically update after automatic removal of "illegal" words
+//TODO create word replacements capability for all keywords
 
 import android.content.Context
 import android.content.Intent
@@ -16,6 +18,7 @@ import androidx.preference.SwitchPreference
 import dagger.android.HasAndroidInjector
 import info.nightscout.androidaps.Constants
 import info.nightscout.androidaps.R
+import info.nightscout.androidaps.activities.PreferencesActivity
 import info.nightscout.androidaps.data.DetailedBolusInfo
 import info.nightscout.androidaps.data.Profile
 import info.nightscout.androidaps.db.Source
@@ -44,6 +47,7 @@ import info.nightscout.androidaps.utils.sharedPreferences.SP
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
 import kotlinx.android.synthetic.main.configbuilder_single_plugin.view.*
+import java.sql.Ref
 import java.util.*
 import javax.crypto.SecretKey
 import javax.inject.Inject
@@ -82,18 +86,20 @@ class VoiceAssistantPlugin @Inject constructor(
 ) {
 
     private val disposable = CompositeDisposable()
-    private var key: SecretKey? = null
     private val pin = sp.getString(R.string.key_smscommunicator_otp_password, "").trim()
-    var messages = ArrayList<String>()
-    var fullCommandReceived = false
-    var detailedStatus = false
-    var requireIdentifier: Any = true
-    val patientName = sp.getString(R.string.key_patient_name, "")
-    var cleanedCommand = ""
-    var bolusReplacements = ""
-    var carbReplacements = ""
-    var nameReplacements = ""
+    private var fullCommandReceived = false
+    private var detailedStatus = false
+    private var requireIdentifier: Any = true
+    private var fullSentenceResponses: Any = true
+    private val patientName = sp.getString(R.string.key_patient_name, "")
+    private var cleanedCommand = ""
+    private var bolusReplacements = ""
+    private var carbReplacements = ""
+    private var nameReplacements = ""
+    private var keyWordViolations = ""
+    private var keywordArray: Array<String> = arrayOf("carb","bolus","profile","switch","calculate","grams","minute","hour","unit","glucose","iob","insulin","cob","trend","basal","bolus","delta","target","summary","yes","no")
     lateinit var spokenCommandArray: Array<String>
+    var messages = ArrayList<String>()
 
     override fun onStart() {
         processSettings(null)
@@ -115,6 +121,14 @@ class VoiceAssistantPlugin @Inject constructor(
             ?: return
         _requireIdentifier.onPreferenceChangeListener = Preference.OnPreferenceChangeListener { _: Preference?, newValue: Any ->
             requireIdentifier = newValue
+            aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: requireIdentifier set to " + newValue)
+            true
+        }
+        val _fullSentenceResponses = preferenceFragment.findPreference(resourceHelper.gs(R.string.key_voiceassistant_fullsentenceresponses)) as SwitchPreference?
+            ?: return
+        _fullSentenceResponses.onPreferenceChangeListener = Preference.OnPreferenceChangeListener { _: Preference?, newValue: Any ->
+            fullSentenceResponses = newValue
+            aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: fullSentenceResponses set to " + newValue)
             true
         }
     }
@@ -148,10 +162,12 @@ class VoiceAssistantPlugin @Inject constructor(
             messages.add(dateUtil.timeStringWithSeconds(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + "Command received: " + receivedCommand + "</b><br>")
             fullCommandReceived = true
 
-            if (receivedCommand.toLowerCase(Locale.ROOT) == "no" || receivedCommand.toLowerCase(Locale.ROOT) == "stop" || receivedCommand.contains("abort", true) || receivedCommand.contains("cancel",true)) return
-            //any negative command coming through should stop further processing.
-
             cleanedCommand = processReplacements(receivedCommand)
+
+            if (cleanedCommand.contains("\bno\b".toRegex(RegexOption.IGNORE_CASE))) return
+            //any negative command coming through should stop further processing.
+            //TODO via replacements have it be also, "stop", "abort", "cancel", and others
+
             spokenCommandArray = cleanedCommand.split(Regex("\\s+")).toTypedArray()
 
         } else {
@@ -267,11 +283,10 @@ class VoiceAssistantPlugin @Inject constructor(
             userFeedback(resourceHelper.gs(R.string.voicecommand_profile_not_configured))
             return
         }
-        val list = store.getProfileList()
         var percentage = "100"
         var durationMin = "0"
         var durationHour = "0"
-        var pindex = "0"
+        var pindex = ""
         for (x in 0 until spokenCommandArray.size) {
             if (spokenCommandArray[x].contains("minute", true) &&
                 spokenCommandArray[x-1].contains("[0-9]".toRegex())) durationMin = spokenCommandArray[x-1]
@@ -279,25 +294,40 @@ class VoiceAssistantPlugin @Inject constructor(
                 spokenCommandArray[x-1].contains("[0-9]".toRegex())) durationHour = spokenCommandArray[x-1]
             if (spokenCommandArray[x].contains("percent", true) &&
                 spokenCommandArray[x-1].contains("[0-9]".toRegex())) percentage = spokenCommandArray[x-1]
-            if (spokenCommandArray[x].contains("profile", true) &&
-                spokenCommandArray[x+1].contains("[0-9]".toRegex())) pindex = spokenCommandArray[x+1]
         }
         if (percentage == "0") {
             userFeedback("It is not possible to have a 0% profile. Try again.")
             return
         }
-        if (pindex == "0") {
+        val list = store.getProfileList()
+        var profileName = ""
+        if (list.isEmpty()) {
+            userFeedback(resourceHelper.gs(R.string.voicecommand_profile_not_configured))
+            return
+        } else {
+            for (i in list.indices) {
+                if (cleanedCommand.contains(list[i].toString(), true)) {
+                    pindex = i.toString()
+                    profileName = list[i].toString()
+                    aapsLogger.debug(LTag.VOICECOMMAND, "Profile name is " + profileName + " and index is " + i.toString())
+                }
+            }
+        }
+        if (pindex == "" || profileName == "") {
             userFeedback("I did not understand which profile you wanted. Try again.")
             return
         }
 
         val duration = SafeParse.stringToInt(durationMin) + (SafeParse.stringToInt(durationHour) * 60)
 
+        /*
         val profile = store.getSpecificProfile(list[SafeParse.stringToInt(pindex) - 1] as String)
         if (profile == null) {
             userFeedback("I could not load your profile. Try again.")
             return
         }
+        aapsLogger.debug(LTag.VOICECOMMAND, "Profile is " + profile)
+
 
         var profileName: String? = profileFunction.getProfileName()
         if (profileName != null) {
@@ -307,13 +337,14 @@ class VoiceAssistantPlugin @Inject constructor(
             userFeedback("I could not get your profile name. Try again.")
             return
         }
+        */
 
         var replyText = "To confirm profile switch to " + profileName + " at " + percentage + " percent,"
         if (duration != 0) replyText += "for " + duration.toString() + " minutes,"
-        if (patientName != "") replyText += " for " + patientName + ", "
+        if (requireIdentifier as Boolean && patientName != "") replyText += " for " + patientName + ", "
         replyText += "say Yes."
         val counter: Long = DateUtil.now() / 30000L
-        val parameters = "profileswitchconfirm;" + totp.generateOneTimePassword(counter) + ";" + pindex + ";" + percentage.toString() + ";" + duration.toString() + ";" + patientName
+        val parameters = "profileswitchconfirm;" + totp.generateOneTimePassword(counter) + ";" + pindex + ";" + percentage + ";" + duration.toString() + ";" + patientName
 
         userFeedback(replyText,true,parameters)
     }
@@ -341,7 +372,8 @@ class VoiceAssistantPlugin @Inject constructor(
                 return
             }
             val list = store.getProfileList()
-            activePlugin.activeTreatments.doProfileSwitch(store, list[pindex - 1] as String, duration, percentage, 0, DateUtil.now())
+            activePlugin.activeTreatments.doProfileSwitch(store, list[pindex] as String, duration, percentage, 0, DateUtil.now())
+            //line above: pindex or pindex - 1?
             userFeedback("Profile switch created.")
         }
     }
@@ -461,17 +493,16 @@ class VoiceAssistantPlugin @Inject constructor(
             //The goal it achieves though is having the information returned to the user in the same order it was requested.
             for (x in 0 until spokenCommandArray.size) {
                 if (spokenCommandArray[x].contains("glucose", true)) reply += returnGlucose()
-                if (spokenCommandArray[x].contains("sugar", true)) reply += returnGlucose()
-                if (spokenCommandArray[x].contains("bg", true)) reply += returnGlucose()
-                if (spokenCommandArray[x].contains("iob", true)) reply += returnIOB()
                 if (spokenCommandArray[x].contains("insulin", true)) reply += returnIOB()
-                if (spokenCommandArray[x].contains("cob", true)) reply += returnCOB()
+                if (spokenCommandArray[x].contains("iob", true)) reply += returnIOB()
                 if (spokenCommandArray[x].contains("carb", true)) reply += returnCOB()
+                if (spokenCommandArray[x].contains("cob", true)) reply += returnCOB()
                 if (spokenCommandArray[x].contains("trend", true)) reply += returnTrend()
                 if (spokenCommandArray[x].contains("basal", true)) reply += returnBasalRate()
                 if (spokenCommandArray[x].contains("bolus", true)) reply += returnLastBolus()
                 if (spokenCommandArray[x].contains("delta", true)) reply += returnDelta()
                 if (spokenCommandArray[x].contains("profile", true)) reply += returnProfileResult()
+                if (spokenCommandArray[x].contains("target", true)) reply += returnTarget()
                 if (spokenCommandArray[x].contains("summary", true))  reply += returnGlucose() + returnDelta() + returnIOB() + returnCOB() + returnStatus()
             }
         } else {
@@ -528,11 +559,11 @@ class VoiceAssistantPlugin @Inject constructor(
             if (list.isEmpty()) output = resourceHelper.gs(R.string.voicecommand_profile_not_configured)
             else {
                 for (i in list.indices) {
-                    if (i > 0) output += ", "
+                    if (i > 0) output += ",\n"
                     output += (i + 1).toString() + ". "
                     output += list[i]
                 }
-                output = "The profile list is, " + output + "."
+                output = "The profile list is\n" + output + "."
             }
         } else {
 
@@ -565,6 +596,10 @@ class VoiceAssistantPlugin @Inject constructor(
 
     private fun returnTrend(): String {
         return "I don't do trend requests yet."
+    }
+
+    private fun returnTarget(): String {
+        return "I don't do target requests yet."
     }
 
     private fun returnIOB(): String {
@@ -675,8 +710,8 @@ class VoiceAssistantPlugin @Inject constructor(
     private fun processUserReplacements(command: String, replacementWords:String, newWord:String): String {
         var output = ""
 
-        var wordArray: Array<String> = replacementWords.trim().split(Regex(";")).toTypedArray()
-        for (x in 0 until wordArray.size) output = command.replace(wordArray[x], patientName, true)
+        val wordArray: Array<String> = replacementWords.trim().split(Regex(";")).toTypedArray()
+        for (x in 0 until wordArray.size) output = command.replace(wordArray[x], newWord, true)
 
         return output
     }
@@ -698,6 +733,28 @@ class VoiceAssistantPlugin @Inject constructor(
             nameReplacements = sp.getString(R.string.key_voiceassistant_namereplacements, "")
             if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Name replacements set to " + nameReplacements)
         }
+
+        keyWordViolations = ""
+        sp.putString(R.string.key_voiceassistant_bolusreplacements, processKeyWordViolations(bolusReplacements))
+        sp.putString(R.string.key_voiceassistant_carbreplacements, processKeyWordViolations(carbReplacements))
+        sp.putString(R.string.key_voiceassistant_namereplacements, processKeyWordViolations(nameReplacements))
+
+        if (keyWordViolations != "") {
+            userFeedback("It is not allowed to have the following words as replacements: " + keyWordViolations + ". These were removed.")
+        }
     }
 
+    private fun processKeyWordViolations(replacements: String): String {
+
+        var output = ";" + replacements + ";"
+        for (x in 0 until keywordArray.size) {
+            if (output.contains(";" + keywordArray[x] + ";", true)) {
+                keyWordViolations += keywordArray[x] + ", "
+                output = output.replace(";" + keywordArray[x] + ";", ";", true)
+            }
+        }
+        output = output.substring(1, output.length - 1) // remove the ";" on the ends added at the beginning
+        aapsLogger.debug(LTag.VOICECOMMAND, "Output is: " + output + " and keywordviolations are: " + keyWordViolations)
+        return output
+    }
 }

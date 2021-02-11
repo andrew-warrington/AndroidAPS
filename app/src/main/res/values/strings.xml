@@ -1401,7 +1401,7 @@
     <string name="key_voiceassistant_bolusreplacements" translatable="false">voiceassistant_bolusreplacements</string>
     <string name="voiceassistant_bolusreplacements_summary">Words which mean \"bolus\"</string>
     <string name="voiceassistant_bolusreplacements">Words which mean \"bolus\"</string>
-    <string name="voiceassistant_bolusreplacements_defaults">bowls;bullous;bullar;wallace;wallis;deliver</string>
+    <string name="voiceassistant_bolusreplacements_defaults">bowls;bullous;bullar;deliver</string>
     <string name="voiceassistant_carbreplacements_summary">Words which mean \"carb\"</string>
     <string name="voiceassistant_carbreplacements">Words which mean \"carb\"</string>
     <string name="key_voiceassistant_carbreplacements" translatable="false">voiceassistant_carbreplacements</string>
@@ -1414,5 +1414,8 @@
     <string name="voiceassistant_replacements">Word replacements</string>
     <string name="voiceassistant_replacements_summary">Use word replacements to set up custom keywords or to fix problems with voice recognition.</string>
     <string name="voicecommand_profile_not_configured">No profile is configured. Please create at least one profile.</string>
+    <string name="key_voiceassistant_fullsentenceresponses" translatable="false">voiceassistant_fullsentenceresponses</string>
+    <string name="voiceassistant_fullsentenceresponses_summary">Have AndroidAPS respond in full sentences. When off, responses will be shorter. (not yet implemented)</string>
+    <string name="voiceassistant_fullsentenceresponses">Full sentence responses</string>
 
 </resources>

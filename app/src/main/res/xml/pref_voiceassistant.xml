@@ -20,6 +20,13 @@
             android:summary="@string/voiceassistant_requireidentifier_summary"
             android:title="@string/voiceassistant_requireidentifier" />
 
+        <SwitchPreference
+            android:defaultValue="true"
+            android:key="@string/key_voiceassistant_fullsentenceresponses"
+            android:dependency="@string/key_voiceassistant_commandsallowed"
+            android:summary="@string/voiceassistant_fullsentenceresponses_summary"
+            android:title="@string/voiceassistant_fullsentenceresponses" />
+
         <androidx.preference.PreferenceScreen
             android:key="@string/key_voiceassistant_replacements"
             android:title="@string/voiceassistant_replacements"
