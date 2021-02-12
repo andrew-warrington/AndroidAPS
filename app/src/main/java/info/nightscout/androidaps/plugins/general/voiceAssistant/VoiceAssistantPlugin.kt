@@ -197,9 +197,9 @@ class VoiceAssistantPlugin @Inject constructor(
         }
 
         if (command.contains("automation",true)) { requestAutomation() ; return }
-        else if (command.contains("carb",true) && command.contains("[0-9]\\sgrams".toRegex(RegexOption.IGNORE_CASE))) { requestCarbs() ; return }
         else if (command.contains("bolus",true) && command.contains("[0-9]\\sunits".toRegex(RegexOption.IGNORE_CASE))) { requestBolus() ; return }
         else if (command.contains("bolus",true) && command.contains("[0-9]\\sgrams".toRegex(RegexOption.IGNORE_CASE))) { requestBolusWizard() ; return }
+        else if (command.contains("carb",true) && command.contains("[0-9]\\sgrams".toRegex(RegexOption.IGNORE_CASE))) { requestCarbs() ; return }
         else if (command.contains("calculate", true)) { requestBolusWizard() ; return }
         else if (command.contains("profile",true) && command.contains("switch", true)) { requestProfileSwitch() ; return }
         else { processInfoRequest() ; return }
