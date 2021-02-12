@@ -499,13 +499,16 @@ class VoiceAssistantPlugin @Inject constructor(
                 replyText += "Bolus wizard results is " + bolusWizard.calculatedTotalInsulin.toString() + " units of insulin for glucose " + bgReading.valueToUnitsToString(units) + " " + units
                 replyText += if (carbAmountD > 0.0) " and " + carbAmount + " grams of carb." else "."
             } else if (bolusWizard.carbsEquivalent.toInt() > 0) {
-                replyText += "Bolus wizard results is that " + bolusWizard.carbsEquivalent.toString() + " grams of carb are required."
+                replyText += "Bolus wizard results is that " + DecimalFormatter.to0Decimal(bolusWizard.carbsEquivalent).toString()
+                if (carbAmountD > 0) replyText += " more"
+                replyText += " grams of carb are required."
             }
 
             if (replyText != "") replyText += "Would you like to "
             if (bolusWizard.calculatedTotalInsulin > 0.0) replyText += "deliver the insulin "
             if (bolusWizard.calculatedTotalInsulin > 0.0 && carbAmountD > 0.0) replyText += "and "
-            if (carbAmountD > 0.0) replyText += "add the carb"
+            if (carbAmountD > 0.0 || bolusWizard.carbsEquivalent > 0) replyText += "add the carb"
+            if (carbAmountD > 0.0 && bolusWizard.carbsEquivalent > 0) replyText += " you mentioned"
             if (requireIdentifier as Boolean && patientName != "") replyText += " for " + patientName
 
             if (replyText == "") { userFeedback("The bolus wizard did not return a result.") ; return }
