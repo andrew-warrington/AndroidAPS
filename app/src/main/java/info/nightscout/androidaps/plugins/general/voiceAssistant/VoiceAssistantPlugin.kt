@@ -508,12 +508,12 @@ class VoiceAssistantPlugin @Inject constructor(
             if (replyText != "") {
                 if (bolusWizard.calculatedTotalInsulin > 0.0) supplementalText += "deliver the insulin "
                 if (bolusWizard.calculatedTotalInsulin > 0.0 && carbAmountD > 0.0) supplementalText += "and "
-                if (carbAmountD > 0.0 || bolusWizard.carbsEquivalent > 0) supplementalText += "add the carb"
+                if (carbAmountD > 0.0) supplementalText += "add the carb"
                 if (carbAmountD > 0.0 && bolusWizard.carbsEquivalent > 0) supplementalText += " you mentioned"
-                if (requireIdentifier as Boolean && patientName != "") supplementalText += " for " + patientName
+                if (requireIdentifier as Boolean && patientName != "") supplementalText += ", for " + patientName
             }
 
-            if (supplementalText != "") replyText = replyText + " Would you like to " + supplementalText
+            if (supplementalText != "") replyText = replyText + " Would you like to " + supplementalText + "?"
 
             if (replyText == "") {
                 userFeedback("The bolus wizard did not return a result."); return
