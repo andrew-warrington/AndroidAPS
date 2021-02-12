@@ -504,15 +504,20 @@ class VoiceAssistantPlugin @Inject constructor(
                 replyText += " grams of carb are required."
             }
 
-            if (replyText != "") replyText += "Would you like to "
-            if (bolusWizard.calculatedTotalInsulin > 0.0) replyText += "deliver the insulin "
-            if (bolusWizard.calculatedTotalInsulin > 0.0 && carbAmountD > 0.0) replyText += "and "
-            if (carbAmountD > 0.0 || bolusWizard.carbsEquivalent > 0) replyText += "add the carb"
-            if (carbAmountD > 0.0 && bolusWizard.carbsEquivalent > 0) replyText += " you mentioned"
-            if (requireIdentifier as Boolean && patientName != "") replyText += " for " + patientName
+            var supplementalText = ""
+            if (replyText != "") {
+                if (bolusWizard.calculatedTotalInsulin > 0.0) supplementalText += "deliver the insulin "
+                if (bolusWizard.calculatedTotalInsulin > 0.0 && carbAmountD > 0.0) supplementalText += "and "
+                if (carbAmountD > 0.0 || bolusWizard.carbsEquivalent > 0) supplementalText += "add the carb"
+                if (carbAmountD > 0.0 && bolusWizard.carbsEquivalent > 0) supplementalText += " you mentioned"
+                if (requireIdentifier as Boolean && patientName != "") supplementalText += " for " + patientName
+            }
 
-            if (replyText == "") { userFeedback("The bolus wizard did not return a result.") ; return }
-            else replyText += "?"
+            if (supplementalText != "") replyText = replyText + " Would you like to " + supplementalText
+
+            if (replyText == "") {
+                userFeedback("The bolus wizard did not return a result."); return
+            }
 
             val counter: Long = DateUtil.now() / 30000L
             val parameters = "bolusconfirm;" + totp.generateOneTimePassword(counter) + ";" + bolusWizard.calculatedTotalInsulin.toString() + ";" + carbAmount + ";" + meal
