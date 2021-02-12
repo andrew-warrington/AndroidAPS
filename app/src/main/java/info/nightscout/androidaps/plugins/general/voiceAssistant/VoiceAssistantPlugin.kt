@@ -12,6 +12,8 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 //TODO create word replacements capability for all keywords
 //TODO automation
 //TODO implement bolus password?
+//TODO move word replacements to fragment
+//TODO implement temp targets
 
 import android.content.Context
 import android.content.Intent
@@ -100,7 +102,6 @@ class VoiceAssistantPlugin @Inject constructor(
     private var carbReplacements = ""
     private var nameReplacements = ""
     private var keyWordViolations = ""
-    private var lastBolusWizard: BolusWizard? = null
     private var keywordArray: Array<String> = arrayOf("carb","bolus","profile","switch","calculate","grams","minute","hour","unit","glucose","iob","insulin","cob","trend","basal","bolus","delta","target","summary","yes","no","automation")
     lateinit var spokenCommandArray: Array<String>
     var messages = ArrayList<String>()
@@ -197,10 +198,11 @@ class VoiceAssistantPlugin @Inject constructor(
         }
 
         if (command.contains("automation",true)) { requestAutomation() ; return }
-        else if (command.contains("bolus",true) && command.contains("[0-9]\\sunits".toRegex(RegexOption.IGNORE_CASE))) { requestBolus() ; return }
-        else if (command.contains("bolus",true) && command.contains("[0-9]\\sgrams".toRegex(RegexOption.IGNORE_CASE))) { requestBolusWizard() ; return }
-        else if (command.contains("carb",true) && command.contains("[0-9]\\sgrams".toRegex(RegexOption.IGNORE_CASE))) { requestCarbs() ; return }
         else if (command.contains("calculate", true)) { requestBolusWizard() ; return }
+        else if (command.contains("bolus",true) && command.contains("[0-9]\\sgrams".toRegex(RegexOption.IGNORE_CASE)) && command.contains("[0-9]\\sunits".toRegex(RegexOption.IGNORE_CASE))) { requestBolus() ; return }
+        else if (command.contains("bolus",true) && command.contains("[0-9]\\sgrams".toRegex(RegexOption.IGNORE_CASE))) { requestBolusWizard() ; return }
+        else if (command.contains("bolus",true) && command.contains("[0-9]\\sunits".toRegex(RegexOption.IGNORE_CASE))) { requestBolus() ; return }
+        else if (command.contains("carb",true) && command.contains("[0-9]\\sgrams".toRegex(RegexOption.IGNORE_CASE))) { requestCarbs() ; return }
         else if (command.contains("profile",true) && command.contains("switch", true)) { requestProfileSwitch() ; return }
         else { processInfoRequest() ; return }
     }
@@ -215,7 +217,7 @@ class VoiceAssistantPlugin @Inject constructor(
         }
         if (constraintsOk(amount,"carb")) {
             var replyText = "To confirm adding " + amount + " grams of carb"
-            if (patientName != "") replyText += " for " + patientName
+            if (requireIdentifier as Boolean && patientName != "") replyText += " for " + patientName
             replyText += ", say Yes."
             val counter: Long = DateUtil.now() / 30000L
             val parameters = "carbconfirm;" + totp.generateOneTimePassword(counter) + ";" + amount + ";" + patientName
@@ -372,7 +374,7 @@ class VoiceAssistantPlugin @Inject constructor(
 
             var replyText = "To confirm delivery of " + insulinAmount + " units of insulin"
             if (carbAmount != "0") replyText += " and " + carbAmount + " grams of carb"
-            if (patientName != "") replyText += " for " + patientName
+            if (requireIdentifier as Boolean && patientName != "") replyText += " for " + patientName
             replyText += ", say Yes."
             val counter: Long = DateUtil.now() / 30000L
             val parameters = "bolusconfirm;" + totp.generateOneTimePassword(counter) + ";" + insulinAmount.toString() + ";" + carbAmount.toString()+ ";" + meal.toString()
@@ -477,6 +479,11 @@ class VoiceAssistantPlugin @Inject constructor(
                 userFeedback("There was no recent glucose reading to base the calculation on. Please wait for a new reading and try again.")
                 return
             }
+
+            val actualBG = iobCobCalculatorPlugin.actualBg()
+            val lastBG = iobCobCalculatorPlugin.lastBg()
+            val units = profileFunction.getUnits()
+
             val cobInfo = iobCobCalculatorPlugin.getCobInfo(false, "Voice assistant wizard")
             if (cobInfo.displayCob == null) {
                 userFeedback("I could not calculate your current carb on board. Please wait for a few minutes and try again.")
@@ -489,16 +496,20 @@ class VoiceAssistantPlugin @Inject constructor(
             var replyText = ""
             val carbAmountD = SafeParse.stringToDouble(carbAmount)
             if (bolusWizard.calculatedTotalInsulin > 0.0) {
-                replyText += "I have calculated " + bolusWizard.calculatedTotalInsulin + "units of insulin are needed for glucose " + bgReading
+                replyText += "Bolus wizard results is " + bolusWizard.calculatedTotalInsulin.toString() + " units of insulin for glucose " + bgReading.valueToUnitsToString(units) + " " + units
                 replyText += if (carbAmountD > 0.0) " and " + carbAmount + " grams of carb." else "."
             } else if (bolusWizard.carbsEquivalent.toInt() > 0) {
-                replyText += "I have calculated that " + bolusWizard.carbsEquivalent.toString() + " grams of carb are required."
+                replyText += "Bolus wizard results is that " + bolusWizard.carbsEquivalent.toString() + " grams of carb are required."
             }
 
-            replyText += "Would you like to "
+            if (replyText != "") replyText += "Would you like to "
             if (bolusWizard.calculatedTotalInsulin > 0.0) replyText += "deliver the insulin "
-            if (bolusWizard.calculatedTotalInsulin > 0.0 && carbAmountD > 0.0) replyText += "and"
-            if (carbAmountD > 0.0) replyText += " add the carb?"
+            if (bolusWizard.calculatedTotalInsulin > 0.0 && carbAmountD > 0.0) replyText += "and "
+            if (carbAmountD > 0.0) replyText += "add the carb"
+            if (requireIdentifier as Boolean && patientName != "") replyText += " for " + patientName
+
+            if (replyText == "") { userFeedback("The bolus wizard did not return a result.") ; return }
+            else replyText += "?"
 
             val counter: Long = DateUtil.now() / 30000L
             val parameters = "bolusconfirm;" + totp.generateOneTimePassword(counter) + ";" + bolusWizard.calculatedTotalInsulin.toString() + ";" + carbAmount + ";" + meal
@@ -558,8 +569,8 @@ class VoiceAssistantPlugin @Inject constructor(
     private fun returnGlucose(): String {
         val actualBG = iobCobCalculatorPlugin.actualBg()
         val lastBG = iobCobCalculatorPlugin.lastBg()
-        var output = ""
         val units = profileFunction.getUnits()
+        var output = ""
         if (actualBG != null) {
             output = "The current sensor glucose reading is " + actualBG.valueToUnitsToString(units) + " " + units + "."
         } else if (lastBG != null) {
@@ -805,7 +816,7 @@ class VoiceAssistantPlugin @Inject constructor(
         else if (type == "carb") { finalAmount = constraintChecker.applyCarbsConstraints(Constraint(SafeParse.stringToInt(requestedAmount))).value().toString() }
         else return false
 
-        if (requestedAmount != finalAmount) {
+        if (SafeParse.stringToDouble(requestedAmount) != SafeParse.stringToDouble(finalAmount)) {
             userFeedback(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), type, requestedAmount, finalAmount), false)
             return false
         }
