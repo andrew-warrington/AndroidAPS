@@ -170,7 +170,7 @@ class VoiceAssistantPlugin @Inject constructor(
 
             cleanedCommand = processReplacements(receivedCommand)
 
-            if (cleanedCommand.contains("\bno\b".toRegex(RegexOption.IGNORE_CASE))) return
+            if (cleanedCommand.toLowerCase() == "no") return
             //any negative command coming through should stop further processing.
             //TODO via replacements have it be also, "stop", "abort", "cancel", and others
 
@@ -726,13 +726,13 @@ class VoiceAssistantPlugin @Inject constructor(
         output = output.replace("seven", "7", true)
         output = output.replace("eight", "8", true)
         output = output.replace("nine", "9", true)
-        //aapsLogger.debug(LTag.VOICECOMMAND, "Updated command at step 1: " + output)
+        aapsLogger.debug(LTag.VOICECOMMAND, "Updated command at step 1: " + output)
 
         //step 2: split numbers and units, such as 25g to 25 g
         output = output.replace("(\\d)([A-Za-z])".toRegex(), "$1 $2")
         output = output.replace("(\\d)(%)".toRegex(), "$1 $2")
         output = output.replace("\'", " \'", true)
-        //aapsLogger.debug(LTag.VOICECOMMAND, "Updated command at step 2: " + output)
+        aapsLogger.debug(LTag.VOICECOMMAND, "Updated command at step 2: " + output)
 
         //step 3: replace units abbreviations with words
         output = output.replace(" g ", " grams ", true)
@@ -742,7 +742,7 @@ class VoiceAssistantPlugin @Inject constructor(
         output = output.replace(" m ", " minutes ", true)
         output = output.replace(" h ", " hour ", true)
         output = output.replace("-", " ", true)
-        //aapsLogger.debug(LTag.VOICECOMMAND, "Updated command at step 3: " + output)
+        aapsLogger.debug(LTag.VOICECOMMAND, "Updated command at step 3: " + output)
 
         //step 4: user defined replacements
         if (bolusReplacements != "") output = processUserReplacements(output, bolusReplacements,"bolus")
@@ -757,10 +757,10 @@ class VoiceAssistantPlugin @Inject constructor(
     }
 
     private fun processUserReplacements(command: String, replacementWords:String, newWord:String): String {
-        var output = ""
+        var output = command
 
         val wordArray: Array<String> = replacementWords.trim().split(Regex(";")).toTypedArray()
-        for (x in 0 until wordArray.size) output = command.replace(wordArray[x], newWord, true)
+        for (x in 0 until wordArray.size) output = output.replace(wordArray[x], newWord, true)
 
         return output
     }
