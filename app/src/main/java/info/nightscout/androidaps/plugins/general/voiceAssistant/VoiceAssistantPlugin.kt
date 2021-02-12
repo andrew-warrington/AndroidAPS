@@ -8,7 +8,10 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 //TODO make the Voice fragment content persistent through application restarts & reboots
 //TODO get text validation to ensure only alpha + ; in the prefs screen for word replacements
 //TODO get word replacements prefs screen to automatically update after automatic removal of "illegal" words
+//TODO word replacements: No duplicates
 //TODO create word replacements capability for all keywords
+//TODO automation
+//TODO implement bolus password?
 
 import android.content.Context
 import android.content.Intent
@@ -18,7 +21,6 @@ import androidx.preference.SwitchPreference
 import dagger.android.HasAndroidInjector
 import info.nightscout.androidaps.Constants
 import info.nightscout.androidaps.R
-import info.nightscout.androidaps.activities.PreferencesActivity
 import info.nightscout.androidaps.data.DetailedBolusInfo
 import info.nightscout.androidaps.data.Profile
 import info.nightscout.androidaps.db.Source
@@ -44,12 +46,11 @@ import info.nightscout.androidaps.utils.SafeParse
 import info.nightscout.androidaps.utils.extensions.plusAssign
 import info.nightscout.androidaps.utils.resources.ResourceHelper
 import info.nightscout.androidaps.utils.sharedPreferences.SP
+import info.nightscout.androidaps.utils.wizard.BolusWizard
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
 import kotlinx.android.synthetic.main.configbuilder_single_plugin.view.*
-import java.sql.Ref
 import java.util.*
-import javax.crypto.SecretKey
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -69,11 +70,12 @@ class VoiceAssistantPlugin @Inject constructor(
     private val dateUtil: DateUtil,
     private val rxBus: RxBusWrapper,
     private val fabricPrivacy: FabricPrivacy,
-    private val totp: OneTimePassword
-//     private val loopPlugin: LoopPlugin,
-//     private val xdripCalibrations: XdripCalibrations,
-//     private var otp: OneTimePassword,
-//     private val config: Config,
+    private val totp: OneTimePassword,
+//    private val preferenceFragmentCompat: PreferenceFragmentCompat,
+//    private val preferenceScreen: PreferenceScreen
+//    private val loopPlugin: LoopPlugin,
+//    private val xdripCalibrations: XdripCalibrations,
+//    private val config: Config,
 ) : PluginBase(PluginDescription()
     .mainType(PluginType.GENERAL)
     .fragmentClass(VoiceAssistantFragment::class.java.name)
@@ -86,6 +88,7 @@ class VoiceAssistantPlugin @Inject constructor(
 ) {
 
     private val disposable = CompositeDisposable()
+//    private val preferencesActivity = PreferencesActivity()
     private val pin = sp.getString(R.string.key_smscommunicator_otp_password, "").trim()
     private var fullCommandReceived = false
     private var detailedStatus = false
@@ -97,7 +100,8 @@ class VoiceAssistantPlugin @Inject constructor(
     private var carbReplacements = ""
     private var nameReplacements = ""
     private var keyWordViolations = ""
-    private var keywordArray: Array<String> = arrayOf("carb","bolus","profile","switch","calculate","grams","minute","hour","unit","glucose","iob","insulin","cob","trend","basal","bolus","delta","target","summary","yes","no")
+    private var lastBolusWizard: BolusWizard? = null
+    private var keywordArray: Array<String> = arrayOf("carb","bolus","profile","switch","calculate","grams","minute","hour","unit","glucose","iob","insulin","cob","trend","basal","bolus","delta","target","summary","yes","no","automation")
     lateinit var spokenCommandArray: Array<String>
     var messages = ArrayList<String>()
 
@@ -151,6 +155,7 @@ class VoiceAssistantPlugin @Inject constructor(
             if (parameters.contains("carbconfirm", true)) { processCarbs(intent); return }
             if (parameters.contains("bolusconfirm", true)) { processBolus(intent); return }
             if (parameters.contains("profileswitchconfirm", true)) { processProfileSwitch(intent); return }
+            if (parameters.contains("automationconfirm", true)) { processAutomation(intent); return }
         } else {
             aapsLogger.debug(LTag.VOICECOMMAND, "No parameters received.")
         }
@@ -191,10 +196,12 @@ class VoiceAssistantPlugin @Inject constructor(
             return
         }
 
-        if (command.contains("carb",true) && command.contains("[0-9]\\sgrams".toRegex(RegexOption.IGNORE_CASE))) { requestCarbs() ; return }
+        if (command.contains("automation",true)) { requestAutomation() ; return }
+        else if (command.contains("carb",true) && command.contains("[0-9]\\sgrams".toRegex(RegexOption.IGNORE_CASE))) { requestCarbs() ; return }
         else if (command.contains("bolus",true) && command.contains("[0-9]\\sunits".toRegex(RegexOption.IGNORE_CASE))) { requestBolus() ; return }
+        else if (command.contains("bolus",true) && command.contains("[0-9]\\sgrams".toRegex(RegexOption.IGNORE_CASE))) { requestBolusWizard() ; return }
+        else if (command.contains("calculate", true)) { requestBolusWizard() ; return }
         else if (command.contains("profile",true) && command.contains("switch", true)) { requestProfileSwitch() ; return }
-        else if (command.contains("calculate", true)) { calculateBolus() ; return }
         else { processInfoRequest() ; return }
     }
 
@@ -206,22 +213,14 @@ class VoiceAssistantPlugin @Inject constructor(
         for (x in 0 until spokenCommandArray.size) {
             if (spokenCommandArray[x] == "grams") amount = spokenCommandArray[x-1]
         }
-        val gramsRequest = SafeParse.stringToInt(amount)
-        val grams = constraintChecker.applyCarbsConstraints(Constraint(gramsRequest)).value()
-        if (gramsRequest != grams) {
-            userFeedback(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "carb", gramsRequest.toString(), grams.toString()))
-            return
+        if (constraintsOk(amount,"carb")) {
+            var replyText = "To confirm adding " + amount + " grams of carb"
+            if (patientName != "") replyText += " for " + patientName
+            replyText += ", say Yes."
+            val counter: Long = DateUtil.now() / 30000L
+            val parameters = "carbconfirm;" + totp.generateOneTimePassword(counter) + ";" + amount + ";" + patientName
+            userFeedback(replyText, true, parameters)
         }
-        if (grams == 0) {
-            userFeedback("Zero grams requested. Aborting.", false)
-            return
-        }
-        var replyText = "To confirm adding " + grams + " grams of carb"
-        if (patientName != "") replyText += " for " + patientName
-        replyText += ", say Yes."
-        val counter: Long = DateUtil.now() / 30000L
-        val parameters = "carbconfirm;" + totp.generateOneTimePassword(counter) + ";" + grams.toString() + ";" + patientName
-        userFeedback(replyText, true, parameters)
     }
 
     private fun processCarbs(intent: Intent) {
@@ -236,41 +235,39 @@ class VoiceAssistantPlugin @Inject constructor(
                 return
             }
 
-            val gramsRequest = SafeParse.stringToInt(splitted[2])
-            val grams = constraintChecker.applyCarbsConstraints(Constraint(gramsRequest)).value()
-            if (gramsRequest != grams) {
-                userFeedback(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "carb", gramsRequest.toString(), grams.toString()))
-                return
-            }
-            aapsLogger.debug(LTag.VOICECOMMAND, String.format(resourceHelper.gs(R.string.voiceassistant_carbslog), grams))
-            val detailedBolusInfo = DetailedBolusInfo()
-            detailedBolusInfo.carbs = grams.toDouble()
-            detailedBolusInfo.source = Source.USER
-            detailedBolusInfo.date = DateUtil.now()
-            if (activePlugin.activePump.pumpDescription.storesCarbInfo) {
-                commandQueue.bolus(detailedBolusInfo, object : Callback() {
-                    override fun run() {
-                        var replyText: String
-                        if (result.success) {
-                            replyText = String.format(resourceHelper.gs(R.string.voiceassistant_carbsset), grams)
-                        } else {
-                            replyText = String.format(resourceHelper.gs(R.string.voiceassistant_carbsfailed), grams)
+            val amount = splitted[2]
+            if (constraintsOk(amount, "carb")) {
+
+                aapsLogger.debug(LTag.VOICECOMMAND, String.format(resourceHelper.gs(R.string.voiceassistant_carbslog), amount))
+                val detailedBolusInfo = DetailedBolusInfo()
+                detailedBolusInfo.carbs = amount.toDouble()
+                detailedBolusInfo.source = Source.USER
+                detailedBolusInfo.date = DateUtil.now()
+                if (activePlugin.activePump.pumpDescription.storesCarbInfo) {
+                    commandQueue.bolus(detailedBolusInfo, object : Callback() {
+                        override fun run() {
+                            var replyText: String
+                            if (result.success) {
+                                replyText = String.format(resourceHelper.gs(R.string.voiceassistant_carbsset), amount)
+                            } else {
+                                replyText = String.format(resourceHelper.gs(R.string.voiceassistant_carbsfailed), amount)
+                            }
+                            if (requireIdentifier as Boolean) {
+                                val recipient: String? = intent.getStringExtra("recipient")
+                                if (recipient != null && recipient != "") replyText += " for " + recipient + "."
+                            }
+                            userFeedback(replyText, false)
                         }
-                        if (requireIdentifier as Boolean) {
-                            val recipient: String? = intent.getStringExtra("recipient")
-                            if (recipient != null && recipient != "") replyText += " for " + recipient + "."
-                        }
-                        userFeedback(replyText, false)
+                    })
+                } else {
+                    activePlugin.activeTreatments.addToHistoryTreatment(detailedBolusInfo, true)
+                    var replyText: String = String.format(resourceHelper.gs(R.string.voiceassistant_carbsset), amount)
+                    if (requireIdentifier as Boolean) {
+                        val recipient: String? = intent.getStringExtra("recipient")
+                        if (recipient != null && recipient != "") replyText += " for " + recipient + "."
                     }
-                })
-            } else {
-                activePlugin.activeTreatments.addToHistoryTreatment(detailedBolusInfo, true)
-                var replyText: String = String.format(resourceHelper.gs(R.string.voiceassistant_carbsset), grams)
-                if (requireIdentifier as Boolean) {
-                    val recipient: String? = intent.getStringExtra("recipient")
-                    if (recipient != null && recipient != "") replyText += " for " + recipient + "."
+                    userFeedback(replyText, false)
                 }
-                userFeedback(replyText, false)
             }
         }
     }
@@ -320,25 +317,6 @@ class VoiceAssistantPlugin @Inject constructor(
 
         val duration = SafeParse.stringToInt(durationMin) + (SafeParse.stringToInt(durationHour) * 60)
 
-        /*
-        val profile = store.getSpecificProfile(list[SafeParse.stringToInt(pindex) - 1] as String)
-        if (profile == null) {
-            userFeedback("I could not load your profile. Try again.")
-            return
-        }
-        aapsLogger.debug(LTag.VOICECOMMAND, "Profile is " + profile)
-
-
-        var profileName: String? = profileFunction.getProfileName()
-        if (profileName != null) {
-            profileName.replace("//((.*)//)".toRegex(RegexOption.IGNORE_CASE), "")
-            // delete anything in brackets to get the basic profile name.
-        } else {
-            userFeedback("I could not get your profile name. Try again.")
-            return
-        }
-        */
-
         var replyText = "To confirm profile switch to " + profileName + " at " + percentage + " percent,"
         if (duration != 0) replyText += "for " + duration.toString() + " minutes,"
         if (requireIdentifier as Boolean && patientName != "") replyText += " for " + patientName + ", "
@@ -380,29 +358,26 @@ class VoiceAssistantPlugin @Inject constructor(
 
     private fun requestBolus() {
 
-        var amount = ""
+        var insulinAmount = "0"
+        var carbAmount = "0"
         for (x in 0 until spokenCommandArray.size) {
-            if (spokenCommandArray[x] == "units") amount = spokenCommandArray[x-1]
+            if (spokenCommandArray[x] == "units") insulinAmount = spokenCommandArray[x-1]
+            if (spokenCommandArray[x] == "grams") carbAmount = spokenCommandArray[x-1]
         }
-        val bolusRequest = SafeParse.stringToDouble(amount)
-        val bolus = constraintChecker.applyBolusConstraints(Constraint(bolusRequest)).value()
-        if (bolusRequest != bolus) {
-            userFeedback(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "bolus", bolusRequest.toString(), bolus.toString()), false)
-            return
-        }
-        if (bolus == 0.0) {
-            userFeedback("Zero units requested. Aborting.", false)
-            return
-        }
-        var meal = false
-        if (cleanedCommand.contains("meal", true)) meal = true
 
-        var replyText = "To confirm delivery of " + bolus + " units of insulin"
-        if (patientName != "") replyText += " for " + patientName
-        replyText += ", say Yes."
-        val counter: Long = DateUtil.now() / 30000L
-        val parameters = "bolusconfirm;" + totp.generateOneTimePassword(counter) + ";" + bolus.toString() + ";" + meal.toString()
-        userFeedback(replyText, true, parameters)
+        if (constraintsOk(insulinAmount, "bolus") && constraintsOk(carbAmount, "carb", false)) {
+
+            var meal = false
+            if (cleanedCommand.contains("meal", true)) meal = true
+
+            var replyText = "To confirm delivery of " + insulinAmount + " units of insulin"
+            if (carbAmount != "0") replyText += " and " + carbAmount + " grams of carb"
+            if (patientName != "") replyText += " for " + patientName
+            replyText += ", say Yes."
+            val counter: Long = DateUtil.now() / 30000L
+            val parameters = "bolusconfirm;" + totp.generateOneTimePassword(counter) + ";" + insulinAmount.toString() + ";" + carbAmount.toString()+ ";" + meal.toString()
+            userFeedback(replyText, true, parameters)
+        }
     }
 
     private fun processBolus(intent: Intent) {
@@ -417,67 +392,131 @@ class VoiceAssistantPlugin @Inject constructor(
                 return
             }
 
-            val bolusRequest = SafeParse.stringToDouble(splitted[2])
-            val bolus = constraintChecker.applyBolusConstraints(Constraint(bolusRequest)).value()
-            if (bolusRequest != bolus) {
-                userFeedback(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), "bolus", bolusRequest.toString(), bolus.toString()), false)
+            val insulinAmount = splitted[2]
+            val carbAmount = splitted[3]
+
+            if (constraintsOk(insulinAmount, "bolus") && constraintsOk(carbAmount, "carb", false)) {
+
+                val isMeal = splitted[4].toBoolean()
+                val detailedBolusInfo = DetailedBolusInfo()
+                detailedBolusInfo.insulin = insulinAmount.toDouble()
+                detailedBolusInfo.carbs = carbAmount.toDouble()
+                detailedBolusInfo.source = Source.USER
+                commandQueue.bolus(detailedBolusInfo, object : Callback() {
+                    override fun run() {
+                        val resultSuccess = result.success
+                        val resultBolusDelivered = result.bolusDelivered
+                        commandQueue.readStatus("VOICECOMMAND", object : Callback() {
+                            override fun run() {
+                                if (resultSuccess) {
+                                    var replyText = if (isMeal) String.format(resourceHelper.gs(R.string.voiceassistant_mealbolusdelivered), resultBolusDelivered)
+                                    else String.format(resourceHelper.gs(R.string.voiceassistant_bolusdelivered), resultBolusDelivered)
+                                    if (isMeal) {
+                                        profileFunction.getProfile()?.let { currentProfile ->
+                                            var eatingSoonTTDuration = sp.getInt(R.string.key_eatingsoon_duration, Constants.defaultEatingSoonTTDuration)
+                                            eatingSoonTTDuration =
+                                                if (eatingSoonTTDuration > 0) eatingSoonTTDuration
+                                                else Constants.defaultEatingSoonTTDuration
+                                            var eatingSoonTT = sp.getDouble(R.string.key_eatingsoon_target, if (currentProfile.units == Constants.MMOL) Constants.defaultEatingSoonTTmmol else Constants.defaultEatingSoonTTmgdl)
+                                            eatingSoonTT =
+                                                if (eatingSoonTT > 0) eatingSoonTT
+                                                else if (currentProfile.units == Constants.MMOL) Constants.defaultEatingSoonTTmmol
+                                                else Constants.defaultEatingSoonTTmgdl
+                                            val tempTarget = TempTarget()
+                                                .date(System.currentTimeMillis())
+                                                .duration(eatingSoonTTDuration)
+                                                .reason(resourceHelper.gs(R.string.eatingsoon))
+                                                .source(Source.USER)
+                                                .low(Profile.toMgdl(eatingSoonTT, currentProfile.units))
+                                                .high(Profile.toMgdl(eatingSoonTT, currentProfile.units))
+                                            activePlugin.activeTreatments.addToHistoryTempTarget(tempTarget)
+                                            val tt =
+                                                if (currentProfile.units == Constants.MMOL) DecimalFormatter.to1Decimal(eatingSoonTT)
+                                                else DecimalFormatter.to0Decimal(eatingSoonTT)
+                                            replyText += "\n" + String.format(resourceHelper.gs(R.string.voiceassistant_mealbolusdelivered_tt), tt, eatingSoonTTDuration)
+                                        }
+                                    }
+                                    userFeedback(replyText, false)
+                                } else {
+                                    userFeedback(resourceHelper.gs(R.string.voiceassistant_bolusfailed), false)
+                                }
+                            }
+                        })
+                    }
+                })
+            }
+        }
+    }
+
+    private fun requestBolusWizard() {
+
+        var meal = false
+        var carbAmount = "0"
+        for (x in 0 until spokenCommandArray.size) {
+            if (spokenCommandArray[x] == "grams") carbAmount = spokenCommandArray[x-1]
+            if (spokenCommandArray[x] == "meal") meal = true
+        }
+
+        if (constraintsOk(carbAmount, "carb", false)) {
+
+            val useBG = sp.getBoolean(R.string.key_wearwizard_bg, true)
+            val useTT = sp.getBoolean(R.string.key_wearwizard_tt, false)
+            val useBolusIOB = sp.getBoolean(R.string.key_wearwizard_bolusiob, true)
+            val useBasalIOB = sp.getBoolean(R.string.key_wearwizard_basaliob, true)
+            val useCOB = sp.getBoolean(R.string.key_wearwizard_cob, true)
+            val useTrend = sp.getBoolean(R.string.key_wearwizard_trend, false)
+            val percentage = sp.getInt(R.string.key_boluswizard_percentage, 100).toInt()
+            val profile = profileFunction.getProfile()
+            val profileName = profileFunction.getProfileName()
+            if (profile == null) {
+                userFeedback("I could not find your profile. Please create a profile and try again.")
                 return
             }
-            val isMeal = splitted[3].toBoolean()
-            val detailedBolusInfo = DetailedBolusInfo()
-            detailedBolusInfo.insulin = bolus
-            detailedBolusInfo.source = Source.USER
-            commandQueue.bolus(detailedBolusInfo, object : Callback() {
-                override fun run() {
-                    val resultSuccess = result.success
-                    val resultBolusDelivered = result.bolusDelivered
-                    commandQueue.readStatus("VOICECOMMAND", object : Callback() {
-                        override fun run() {
-                            if (resultSuccess) {
-                                var replyText = if (isMeal) String.format(resourceHelper.gs(R.string.voiceassistant_mealbolusdelivered), resultBolusDelivered)
-                                else String.format(resourceHelper.gs(R.string.voiceassistant_bolusdelivered), resultBolusDelivered)
-                                if (isMeal) {
-                                    profileFunction.getProfile()?.let { currentProfile ->
-                                        var eatingSoonTTDuration = sp.getInt(R.string.key_eatingsoon_duration, Constants.defaultEatingSoonTTDuration)
-                                        eatingSoonTTDuration =
-                                            if (eatingSoonTTDuration > 0) eatingSoonTTDuration
-                                            else Constants.defaultEatingSoonTTDuration
-                                        var eatingSoonTT = sp.getDouble(R.string.key_eatingsoon_target, if (currentProfile.units == Constants.MMOL) Constants.defaultEatingSoonTTmmol else Constants.defaultEatingSoonTTmgdl)
-                                        eatingSoonTT =
-                                            if (eatingSoonTT > 0) eatingSoonTT
-                                            else if (currentProfile.units == Constants.MMOL) Constants.defaultEatingSoonTTmmol
-                                            else Constants.defaultEatingSoonTTmgdl
-                                        val tempTarget = TempTarget()
-                                            .date(System.currentTimeMillis())
-                                            .duration(eatingSoonTTDuration)
-                                            .reason(resourceHelper.gs(R.string.eatingsoon))
-                                            .source(Source.USER)
-                                            .low(Profile.toMgdl(eatingSoonTT, currentProfile.units))
-                                            .high(Profile.toMgdl(eatingSoonTT, currentProfile.units))
-                                        activePlugin.activeTreatments.addToHistoryTempTarget(tempTarget)
-                                        val tt =
-                                            if (currentProfile.units == Constants.MMOL) DecimalFormatter.to1Decimal(eatingSoonTT)
-                                            else DecimalFormatter.to0Decimal(eatingSoonTT)
-                                        replyText += "\n" + String.format(resourceHelper.gs(R.string.voiceassistant_mealbolusdelivered_tt), tt, eatingSoonTTDuration)
-                                    }
-                                }
-                                userFeedback(replyText, false)
-                            } else {
-                                userFeedback(resourceHelper.gs(R.string.voiceassistant_bolusfailed), false)
-                            }
-                        }
-                    })
-                }
-            })
+            val bgReading = iobCobCalculatorPlugin.actualBg()
+            if (bgReading == null) {
+                userFeedback("There was no recent glucose reading to base the calculation on. Please wait for a new reading and try again.")
+                return
+            }
+            val cobInfo = iobCobCalculatorPlugin.getCobInfo(false, "Voice assistant wizard")
+            if (cobInfo.displayCob == null) {
+                userFeedback("I could not calculate your current carb on board. Please wait for a few minutes and try again.")
+                return
+            }
+            val bolusWizard = BolusWizard(injector).doCalc(profile, profileName, activePlugin.activeTreatments.tempTargetFromHistory,
+                SafeParse.stringToInt(carbAmount), cobInfo.displayCob, bgReading.valueToUnits(profileFunction.getUnits()),
+                0.0, percentage.toDouble(), useBG, useCOB, useBolusIOB, useBasalIOB, false, useTT, useTrend, false)
+
+            var replyText = ""
+            val carbAmountD = SafeParse.stringToDouble(carbAmount)
+            if (bolusWizard.calculatedTotalInsulin > 0.0) {
+                replyText += "I have calculated " + bolusWizard.calculatedTotalInsulin + "units of insulin are needed for glucose " + bgReading
+                replyText += if (carbAmountD > 0.0) " and " + carbAmount + " grams of carb." else "."
+            } else if (bolusWizard.carbsEquivalent.toInt() > 0) {
+                replyText += "I have calculated that " + bolusWizard.carbsEquivalent.toString() + " grams of carb are required."
+            }
+
+            replyText += "Would you like to "
+            if (bolusWizard.calculatedTotalInsulin > 0.0) replyText += "deliver the insulin "
+            if (bolusWizard.calculatedTotalInsulin > 0.0 && carbAmountD > 0.0) replyText += "and"
+            if (carbAmountD > 0.0) replyText += " add the carb?"
+
+            val counter: Long = DateUtil.now() / 30000L
+            val parameters = "bolusconfirm;" + totp.generateOneTimePassword(counter) + ";" + bolusWizard.calculatedTotalInsulin.toString() + ";" + carbAmount + ";" + meal
+            userFeedback(replyText, true, parameters)
         }
+    }
+
+    private fun requestAutomation() {
+        return
+    }
+
+    private fun processAutomation(intent: Intent) {
+        return
     }
 
     ////////////////////// Information request function section  ///////////////////////////////////////////
 
-    private fun calculateBolus() {
-        userFeedback("I don't do bolus calculations yet.")
-        return
-    }
+
 
     private fun processInfoRequest() {
 
@@ -618,7 +657,7 @@ class VoiceAssistantPlugin @Inject constructor(
         if (last != null) {
             val amount: String = last.insulin.toString()
             val date: String = dateUtil.timeString(last.date)
-            output =  "The last manual bolus was for " + amount + " units, on " + date + "."
+            output =  "The last manual bolus was for " + amount + " units, at " + date + "."
         } else {
             output = "I could not find the last manual bolus."
         }
@@ -663,7 +702,7 @@ class VoiceAssistantPlugin @Inject constructor(
     }
 
     private fun processReplacements(string: String): String {
-        var output = string
+        var output = " " + string + " "
 
         //step 1: numbers
         output = output.replace("zero", "0", true)
@@ -681,6 +720,7 @@ class VoiceAssistantPlugin @Inject constructor(
         //step 2: split numbers and units, such as 25g to 25 g
         output = output.replace("(\\d)([A-Za-z])".toRegex(), "$1 $2")
         output = output.replace("(\\d)(%)".toRegex(), "$1 $2")
+        output = output.replace("\'", " \'", true)
         //aapsLogger.debug(LTag.VOICECOMMAND, "Updated command at step 2: " + output)
 
         //step 3: replace units abbreviations with words
@@ -699,6 +739,8 @@ class VoiceAssistantPlugin @Inject constructor(
         if (nameReplacements != "") output = processUserReplacements(output, nameReplacements, patientName)
 
         aapsLogger.debug(LTag.VOICECOMMAND, "Command after word replacements: " + output)
+
+        output = output.trim()
 
         return output // cleanedCommand
     }
@@ -734,23 +776,45 @@ class VoiceAssistantPlugin @Inject constructor(
         sp.putString(R.string.key_voiceassistant_bolusreplacements, processKeyWordViolations(bolusReplacements))
         sp.putString(R.string.key_voiceassistant_carbreplacements, processKeyWordViolations(carbReplacements))
         sp.putString(R.string.key_voiceassistant_namereplacements, processKeyWordViolations(nameReplacements))
+        //TODO get the preferences screen to refresh automatically
 
         if (keyWordViolations != "") {
-            userFeedback("It is not allowed to have the following words as replacements: " + keyWordViolations + ". These were removed.")
+            userFeedback("It is not allowed to have the following words as replacements: " + keyWordViolations + ". These were removed. Exit this screen and reopen it to see the change.")
         }
     }
 
     private fun processKeyWordViolations(replacements: String): String {
 
-        var output = ";" + replacements + ";"
+        var output = ";" + replacements + ";"  //ensure we match whole words only, i.e. should find "carb" as it is a keyword, but ignore "carbs" because that is not
         for (x in 0 until keywordArray.size) {
             if (output.contains(";" + keywordArray[x] + ";", true)) {
                 keyWordViolations += keywordArray[x] + ", "
                 output = output.replace(";" + keywordArray[x] + ";", ";", true)
             }
         }
-        output = output.substring(1, output.length - 1) // remove the ";" on the ends added at the beginning
+        output = output.substring(1, output.length - 1) // remove the ";" which were added at the beginning
         aapsLogger.debug(LTag.VOICECOMMAND, "Output is: " + output + " and keywordviolations are: " + keyWordViolations)
         return output
     }
+
+    private fun constraintsOk(requestedAmount: String, type: String, complainOnZero: Boolean = true): Boolean {
+
+        var finalAmount = ""
+
+        if (type == "bolus") { finalAmount = constraintChecker.applyBolusConstraints(Constraint(SafeParse.stringToDouble(requestedAmount))).value().toString() }
+        else if (type == "carb") { finalAmount = constraintChecker.applyCarbsConstraints(Constraint(SafeParse.stringToInt(requestedAmount))).value().toString() }
+        else return false
+
+        if (requestedAmount != finalAmount) {
+            userFeedback(String.format(resourceHelper.gs(R.string.voiceassistant_constraintresult), type, requestedAmount, finalAmount), false)
+            return false
+        }
+        if (complainOnZero && SafeParse.stringToDouble(finalAmount) == 0.0) {
+            userFeedback("Zero " + type + " amount requested. Aborting.", false)
+            return false
+        }
+
+        return true
+    }
+
 }
