@@ -796,11 +796,11 @@ class VoiceAssistantPlugin @Inject constructor(
         }
         if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_calculatereplacements)) {
             calculateReplacements = sp.getString(R.string.key_voiceassistant_calculatereplacements, "")
-            if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Calculate replacements set to " + calculateReplacements)
+            if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Calculate word replacements set to " + calculateReplacements)
         }
         if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_stopreplacements)) {
             stopReplacements = sp.getString(R.string.key_voiceassistant_stopreplacements, "")
-            if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Stop replacements set to " + stopReplacements)
+            if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Stop word replacements set to " + stopReplacements)
         }
 
         keyWordViolations = ""

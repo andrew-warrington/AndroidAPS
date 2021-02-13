@@ -1401,7 +1401,7 @@
     <string name="key_voiceassistant_bolusreplacements" translatable="false">voiceassistant_bolusreplacements</string>
     <string name="voiceassistant_bolusreplacements_summary">Words which mean \"bolus\"</string>
     <string name="voiceassistant_bolusreplacements">Words which mean \"bolus\"</string>
-    <string name="voiceassistant_bolusreplacements_defaults">bowls;bullous;deliver</string>
+    <string name="voiceassistant_bolusreplacements_defaults">bowls;bullous;bullets;deliver</string>
     <string name="voiceassistant_carbreplacements_summary">Words which mean \"carb\"</string>
     <string name="voiceassistant_carbreplacements">Words which mean \"carb\"</string>
     <string name="key_voiceassistant_carbreplacements" translatable="false">voiceassistant_carbreplacements</string>

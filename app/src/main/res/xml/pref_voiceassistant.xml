@@ -32,25 +32,31 @@
             android:title="@string/voiceassistant_replacements"
             android:summary="@string/voiceassistant_replacements_summary">
 
-            <EditTextPreference
+            <info.nightscout.androidaps.utils.textValidator.ValidatingEditTextPreference
                 android:key="@string/key_voiceassistant_bolusreplacements"
                 android:summary="@string/voiceassistant_bolusreplacements_summary"
                 android:title="@string/voiceassistant_bolusreplacements"
                 android:defaultValue="@string/voiceassistant_bolusreplacements_defaults"/>
 
-            <EditTextPreference
-            android:key="@string/key_voiceassistant_carbreplacements"
-            android:summary="@string/voiceassistant_carbreplacements_summary"
-            android:title="@string/voiceassistant_carbreplacements"
-            android:defaultValue="@string/voiceassistant_carbreplacements_defaults"/>
+            <info.nightscout.androidaps.utils.textValidator.ValidatingEditTextPreference
+                android:key="@string/key_voiceassistant_carbreplacements"
+                android:summary="@string/voiceassistant_carbreplacements_summary"
+                android:title="@string/voiceassistant_carbreplacements"
+                android:defaultValue="@string/voiceassistant_carbreplacements_defaults"/>
 
-            <EditTextPreference
+            <info.nightscout.androidaps.utils.textValidator.ValidatingEditTextPreference
                 android:key="@string/key_voiceassistant_calculatereplacements"
                 android:summary="@string/voiceassistant_calculatereplacements_summary"
                 android:title="@string/voiceassistant_calculatereplacements"
                 android:defaultValue="@string/voiceassistant_calculatereplacements_defaults"/>
 
-            <EditTextPreference
+            <info.nightscout.androidaps.utils.textValidator.ValidatingEditTextPreference
+                android:key="@string/key_voiceassistant_stopreplacements"
+                android:summary="@string/voiceassistant_stopreplacements_summary"
+                android:title="@string/voiceassistant_stopreplacements"
+                android:defaultValue="@string/voiceassistant_stopreplacements_defaults"/>
+
+            <info.nightscout.androidaps.utils.textValidator.ValidatingEditTextPreference
                 android:key="@string/key_voiceassistant_namereplacements"
                 android:summary="@string/voiceassistant_namereplacements_summary"
                 android:title="@string/voiceassistant_namereplacements"
