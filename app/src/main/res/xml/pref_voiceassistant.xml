@@ -39,10 +39,16 @@
                 android:defaultValue="@string/voiceassistant_bolusreplacements_defaults"/>
 
             <EditTextPreference
-                android:key="@string/key_voiceassistant_carbreplacements"
-                android:summary="@string/voiceassistant_carbreplacements_summary"
-                android:title="@string/voiceassistant_carbreplacements"
-                android:defaultValue="@string/voiceassistant_carbreplacements_defaults"/>
+            android:key="@string/key_voiceassistant_carbreplacements"
+            android:summary="@string/voiceassistant_carbreplacements_summary"
+            android:title="@string/voiceassistant_carbreplacements"
+            android:defaultValue="@string/voiceassistant_carbreplacements_defaults"/>
+
+            <EditTextPreference
+                android:key="@string/key_voiceassistant_calculatereplacements"
+                android:summary="@string/voiceassistant_calculatereplacements_summary"
+                android:title="@string/voiceassistant_calculatereplacements"
+                android:defaultValue="@string/voiceassistant_calculatereplacements_defaults"/>
 
             <EditTextPreference
                 android:key="@string/key_voiceassistant_namereplacements"

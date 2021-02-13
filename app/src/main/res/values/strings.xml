@@ -1406,6 +1406,14 @@
     <string name="voiceassistant_carbreplacements">Words which mean \"carb\"</string>
     <string name="key_voiceassistant_carbreplacements" translatable="false">voiceassistant_carbreplacements</string>
     <string name="voiceassistant_carbreplacements_defaults">carp;cart;curb;kerb;carpet;kebab;carbs;carbohydrate;carbohydrates</string>
+    <string name="voiceassistant_calculatereplacements_summary">Words which mean \"calculate\" (bolus wizard)</string>
+    <string name="voiceassistant_calculatereplacements">Words which mean \"calculate\" (bolus wizard)</string>
+    <string name="key_voiceassistant_calculatereplacements" translatable="false">voiceassistant_calculatereplacements</string>
+    <string name="voiceassistant_calculatereplacements_defaults">wizard;how much</string>
+    <string name="voiceassistant_stopreplacements_summary">Words which mean \"stop\"</string>
+    <string name="voiceassistant_stopreplacements">Words which mean \"stop\"</string>
+    <string name="key_voiceassistant_stopreplacements" translatable="false">voiceassistant_stopreplacements</string>
+    <string name="voiceassistant_stopreplacements_defaults">no;cancel;abort</string>
     <string name="voiceassistant_namereplacements_summary">Patient nicknames</string>
     <string name="voiceassistant_namereplacements">Patient nicknames</string>
     <string name="key_voiceassistant_namereplacements" translatable="false">voiceassistant_namereplacements</string>

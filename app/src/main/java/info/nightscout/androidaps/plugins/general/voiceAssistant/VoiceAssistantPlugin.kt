@@ -102,7 +102,9 @@ class VoiceAssistantPlugin @Inject constructor(
     private var carbReplacements = ""
     private var nameReplacements = ""
     private var keyWordViolations = ""
-    private var keywordArray: Array<String> = arrayOf("carb","bolus","profile","switch","calculate","grams","minute","hour","unit","glucose","iob","insulin","cob","trend","basal","bolus","delta","target","summary","yes","no","automation")
+    private var calculateReplacements = ""
+    private var stopReplacements = ""
+    private var keywordArray: Array<String> = arrayOf("carb","bolus","profile","switch","calculate","grams","minute","hour","unit","glucose","iob","insulin","cob","trend","basal","bolus","delta","target","summary","yes","stop","automation")
     lateinit var spokenCommandArray: Array<String>
     var messages = ArrayList<String>()
 
@@ -170,7 +172,7 @@ class VoiceAssistantPlugin @Inject constructor(
 
             cleanedCommand = processReplacements(receivedCommand)
 
-            if (cleanedCommand.toLowerCase() == "no") return
+            if (cleanedCommand.contains("stop", true)) return
             //any negative command coming through should stop further processing.
             //TODO via replacements have it be also, "stop", "abort", "cancel", and others
 
@@ -199,10 +201,10 @@ class VoiceAssistantPlugin @Inject constructor(
 
         if (command.contains("automation",true)) { requestAutomation() ; return }
         else if (command.contains("calculate", true)) { requestBolusWizard() ; return }
-        else if (command.contains("bolus",true) && command.contains("[0-9]\\sgrams".toRegex(RegexOption.IGNORE_CASE)) && command.contains("[0-9]\\sunits".toRegex(RegexOption.IGNORE_CASE))) { requestBolus() ; return }
-        else if (command.contains("bolus",true) && command.contains("[0-9]\\sgrams".toRegex(RegexOption.IGNORE_CASE))) { requestBolusWizard() ; return }
-        else if (command.contains("bolus",true) && command.contains("[0-9]\\sunits".toRegex(RegexOption.IGNORE_CASE))) { requestBolus() ; return }
-        else if (command.contains("carb",true) && command.contains("[0-9]\\sgrams".toRegex(RegexOption.IGNORE_CASE))) { requestCarbs() ; return }
+        else if (command.contains("bolus",true) && command.contains("[0-9]\\sgram".toRegex(RegexOption.IGNORE_CASE)) && command.contains("[0-9]\\sunit".toRegex(RegexOption.IGNORE_CASE))) { requestBolus() ; return }
+        else if (command.contains("bolus",true) && command.contains("[0-9]\\sgram".toRegex(RegexOption.IGNORE_CASE))) { requestBolusWizard() ; return }
+        else if (command.contains("bolus",true) && command.contains("[0-9]\\sunit".toRegex(RegexOption.IGNORE_CASE))) { requestBolus() ; return }
+        else if (command.contains("carb",true) && command.contains("[0-9]\\sgram".toRegex(RegexOption.IGNORE_CASE))) { requestCarbs() ; return }
         else if (command.contains("profile",true) && command.contains("switch", true)) { requestProfileSwitch() ; return }
         else { processInfoRequest() ; return }
     }
@@ -756,6 +758,8 @@ class VoiceAssistantPlugin @Inject constructor(
         if (bolusReplacements != "") output = processUserReplacements(output, bolusReplacements,"bolus")
         if (carbReplacements != "") output = processUserReplacements(output, carbReplacements,"carb")
         if (nameReplacements != "") output = processUserReplacements(output, nameReplacements, patientName)
+        if (calculateReplacements != "") output = processUserReplacements(output, calculateReplacements,"calculate")
+        if (stopReplacements != "") output = processUserReplacements(output, stopReplacements,"stop")
 
         aapsLogger.debug(LTag.VOICECOMMAND, "Command after word replacements: " + output)
 
@@ -790,11 +794,21 @@ class VoiceAssistantPlugin @Inject constructor(
             nameReplacements = sp.getString(R.string.key_voiceassistant_namereplacements, "")
             if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Name replacements set to " + nameReplacements)
         }
+        if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_calculatereplacements)) {
+            calculateReplacements = sp.getString(R.string.key_voiceassistant_calculatereplacements, "")
+            if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Calculate replacements set to " + calculateReplacements)
+        }
+        if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_stopreplacements)) {
+            stopReplacements = sp.getString(R.string.key_voiceassistant_stopreplacements, "")
+            if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Stop replacements set to " + stopReplacements)
+        }
 
         keyWordViolations = ""
         sp.putString(R.string.key_voiceassistant_bolusreplacements, processKeyWordViolations(bolusReplacements))
         sp.putString(R.string.key_voiceassistant_carbreplacements, processKeyWordViolations(carbReplacements))
         sp.putString(R.string.key_voiceassistant_namereplacements, processKeyWordViolations(nameReplacements))
+        sp.putString(R.string.key_voiceassistant_calculatereplacements, processKeyWordViolations(calculateReplacements))
+        sp.putString(R.string.key_voiceassistant_stopreplacements, processKeyWordViolations(stopReplacements))
         //TODO get the preferences screen to refresh automatically
 
         if (keyWordViolations != "") {
