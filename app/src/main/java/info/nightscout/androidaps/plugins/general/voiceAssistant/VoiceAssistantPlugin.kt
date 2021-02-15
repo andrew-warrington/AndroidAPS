@@ -34,6 +34,9 @@ import info.nightscout.androidaps.logging.AAPSLogger
 import info.nightscout.androidaps.logging.LTag
 import info.nightscout.androidaps.plugins.bus.RxBusWrapper
 import info.nightscout.androidaps.plugins.configBuilder.ConstraintChecker
+import info.nightscout.androidaps.plugins.general.smsCommunicator.AuthRequest
+import info.nightscout.androidaps.plugins.general.smsCommunicator.Sms
+import info.nightscout.androidaps.plugins.general.smsCommunicator.SmsAction
 import info.nightscout.androidaps.plugins.general.smsCommunicator.otp.OneTimePassword
 import info.nightscout.androidaps.plugins.general.smsCommunicator.otp.OneTimePasswordValidationResult
 import info.nightscout.androidaps.plugins.iob.iobCobCalculator.GlucoseStatus
@@ -52,6 +55,7 @@ import info.nightscout.androidaps.utils.wizard.BolusWizard
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
 import kotlinx.android.synthetic.main.configbuilder_single_plugin.view.*
+import org.apache.commons.lang3.StringUtils
 import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -95,6 +99,7 @@ class VoiceAssistantPlugin @Inject constructor(
     private var fullCommandReceived = false
     private var detailedStatus = false
     private var requireIdentifier: Any = true
+    private var showButton: Any = true
     private var fullSentenceResponses: Any = true
     private val patientName = sp.getString(R.string.key_patient_name, "")
     private var cleanedCommand = ""
@@ -103,8 +108,8 @@ class VoiceAssistantPlugin @Inject constructor(
     private var nameReplacements = ""
     private var keyWordViolations = ""
     private var calculateReplacements = ""
-    private var stopReplacements = ""
-    private var keywordArray: Array<String> = arrayOf("carb","bolus","profile","switch","calculate","gram","minute","hour","unit","glucose","iob","insulin","cob","trend","basal","bolus","delta","target","status","summary","yes","stop","automation")
+    private var cancelReplacements = ""
+    private var keywordArray: Array<String> = arrayOf("carb","bolus","profile","switch","calculate","gram","minute","hour","unit","glucose","iob","insulin","cob","trend","basal","bolus","delta","target","status","summary","yes","cancel","automation")
     lateinit var spokenCommandArray: Array<String>
     var messages = ArrayList<String>()
 
@@ -131,6 +136,15 @@ class VoiceAssistantPlugin @Inject constructor(
             aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: requireIdentifier set to " + newValue)
             true
         }
+
+        val _showButton = preferenceFragment.findPreference(resourceHelper.gs(R.string.key_voiceassistant_showbutton)) as SwitchPreference?
+            ?: return
+        _showButton.onPreferenceChangeListener = Preference.OnPreferenceChangeListener { _: Preference?, newValue: Any ->
+            showButton = newValue
+            aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: showButton set to " + newValue)
+            true
+        }
+
         val _fullSentenceResponses = preferenceFragment.findPreference(resourceHelper.gs(R.string.key_voiceassistant_fullsentenceresponses)) as SwitchPreference?
             ?: return
         _fullSentenceResponses.onPreferenceChangeListener = Preference.OnPreferenceChangeListener { _: Preference?, newValue: Any ->
@@ -172,9 +186,8 @@ class VoiceAssistantPlugin @Inject constructor(
 
             cleanedCommand = processReplacements(receivedCommand)
 
-            if (cleanedCommand.contains("stop", true)) return
+            if (cleanedCommand.contains("cancel", true)) return
             //any negative command coming through should stop further processing.
-            //TODO via replacements have it be also, "stop", "abort", "cancel", and others
 
             spokenCommandArray = cleanedCommand.split(Regex("\\s+")).toTypedArray()
 
@@ -205,11 +218,117 @@ class VoiceAssistantPlugin @Inject constructor(
         else if (command.contains("bolus",true) && command.contains("[0-9]\\sgram".toRegex(RegexOption.IGNORE_CASE))) { requestBolusWizard() ; return }
         else if (command.contains("bolus",true) && command.contains("[0-9]\\sunit".toRegex(RegexOption.IGNORE_CASE))) { requestBolus() ; return }
         else if (command.contains("carb",true) && command.contains("[0-9]\\sgram".toRegex(RegexOption.IGNORE_CASE))) { requestCarbs() ; return }
+        else if (command.contains("basal",true) && (command.contains("[0-9]\\sunit".toRegex(RegexOption.IGNORE_CASE))) ||
+            command.contains("eating soon", true) || command.contains("activity", true) ||
+            command.contains("hypo", true) || command.contains("cancel", true)) { requestBasal() ; return }
         else if (command.contains("profile",true) && command.contains("switch", true)) { requestProfileSwitch() ; return }
         else { processInfoRequest() ; return }
     }
 
     //////////////////// action request functions section /////////////////////////////
+
+    private fun requestBasal() {
+
+        /*
+
+        if (splitted[1].toUpperCase(Locale.getDefault()) == "CANCEL" || splitted[1].toUpperCase(Locale.getDefault()) == "STOP") {
+            val passCode = generatePasscode()
+            val reply = String.format(resourceHelper.gs(R.string.smscommunicator_basalstopreplywithcode), passCode)
+            receivedSms.processed = true
+            messageToConfirm = AuthRequest(injector, receivedSms, reply, passCode, object : SmsAction() {
+                override fun run() {
+                    aapsLogger.debug("USER ENTRY: SMS BASAL $reply")
+                    commandQueue.cancelTempBasal(true, object : Callback() {
+                        override fun run() {
+                            if (result.success) {
+                                var replyText = resourceHelper.gs(R.string.smscommunicator_tempbasalcanceled)
+                                replyText += "\n" + activePlugin.activePump.shortStatus(true)
+                                sendSMSToAllNumbers(Sms(receivedSms.phoneNumber, replyText))
+                            } else {
+                                var replyText = resourceHelper.gs(R.string.smscommunicator_tempbasalcancelfailed)
+                                replyText += "\n" + activePlugin.activePump.shortStatus(true)
+                                sendSMS(Sms(receivedSms.phoneNumber, replyText))
+                            }
+                        }
+                    })
+                }
+            })
+        } else if (splitted[1].endsWith("%")) {
+            var tempBasalPct = SafeParse.stringToInt(StringUtils.removeEnd(splitted[1], "%"))
+            val durationStep = activePlugin.activePump.model().tbrSettings.durationStep
+            var duration = 30
+            if (splitted.size > 2) duration = SafeParse.stringToInt(splitted[2])
+            val profile = profileFunction.getProfile()
+            if (profile == null) sendSMS(Sms(receivedSms.phoneNumber, resourceHelper.gs(R.string.noprofile)))
+            else if (tempBasalPct == 0 && splitted[1] != "0%") sendSMS(Sms(receivedSms.phoneNumber, resourceHelper.gs(R.string.wrongformat)))
+            else if (duration <= 0 || duration % durationStep != 0) sendSMS(Sms(receivedSms.phoneNumber, resourceHelper.gs(R.string.wrongTbrDuration, durationStep)))
+            else {
+                tempBasalPct = constraintChecker.applyBasalPercentConstraints(Constraint(tempBasalPct), profile).value()
+                val passCode = generatePasscode()
+                val reply = String.format(resourceHelper.gs(R.string.smscommunicator_basalpctreplywithcode), tempBasalPct, duration, passCode)
+                receivedSms.processed = true
+                messageToConfirm = AuthRequest(injector, receivedSms, reply, passCode, object : SmsAction(tempBasalPct, duration) {
+                    override fun run() {
+                        aapsLogger.debug("USER ENTRY: SMS BASAL $reply")
+                        commandQueue.tempBasalPercent(anInteger(), secondInteger(), true, profile, object : Callback() {
+                            override fun run() {
+                                if (result.success) {
+                                    var replyText: String
+                                    replyText = if (result.isPercent) String.format(resourceHelper.gs(R.string.smscommunicator_tempbasalset_percent), result.percent, result.duration) else String.format(resourceHelper.gs(R.string.smscommunicator_tempbasalset), result.absolute, result.duration)
+                                    replyText += "\n" + activePlugin.activePump.shortStatus(true)
+                                    sendSMSToAllNumbers(Sms(receivedSms.phoneNumber, replyText))
+                                } else {
+                                    var replyText = resourceHelper.gs(R.string.smscommunicator_tempbasalfailed)
+                                    replyText += "\n" + activePlugin.activePump.shortStatus(true)
+                                    sendSMS(Sms(receivedSms.phoneNumber, replyText))
+                                }
+                            }
+                        })
+                    }
+                })
+            }
+        } else {
+            var tempBasal = SafeParse.stringToDouble(splitted[1])
+            val durationStep = activePlugin.activePump.model().tbrSettings.durationStep
+            var duration = 30
+            if (splitted.size > 2) duration = SafeParse.stringToInt(splitted[2])
+            val profile = profileFunction.getProfile()
+            if (profile == null) sendSMS(Sms(receivedSms.phoneNumber, resourceHelper.gs(R.string.noprofile)))
+            else if (tempBasal == 0.0 && splitted[1] != "0") sendSMS(Sms(receivedSms.phoneNumber, resourceHelper.gs(R.string.wrongformat)))
+            else if (duration <= 0 || duration % durationStep != 0) sendSMS(Sms(receivedSms.phoneNumber, resourceHelper.gs(R.string.wrongTbrDuration, durationStep)))
+            else {
+                tempBasal = constraintChecker.applyBasalConstraints(Constraint(tempBasal), profile).value()
+                val passCode = generatePasscode()
+                val reply = String.format(resourceHelper.gs(R.string.smscommunicator_basalreplywithcode), tempBasal, duration, passCode)
+                receivedSms.processed = true
+                messageToConfirm = AuthRequest(injector, receivedSms, reply, passCode, object : SmsAction(tempBasal, duration) {
+                    override fun run() {
+                        aapsLogger.debug("USER ENTRY: SMS BASAL $reply")
+                        commandQueue.tempBasalAbsolute(aDouble(), secondInteger(), true, profile, object : Callback() {
+                            override fun run() {
+                                if (result.success) {
+                                    var replyText = if (result.isPercent) String.format(resourceHelper.gs(R.string.smscommunicator_tempbasalset_percent), result.percent, result.duration)
+                                    else String.format(resourceHelper.gs(R.string.smscommunicator_tempbasalset), result.absolute, result.duration)
+                                    replyText += "\n" + activePlugin.activePump.shortStatus(true)
+                                    sendSMSToAllNumbers(Sms(receivedSms.phoneNumber, replyText))
+                                } else {
+                                    var replyText = resourceHelper.gs(R.string.smscommunicator_tempbasalfailed)
+                                    replyText += "\n" + activePlugin.activePump.shortStatus(true)
+                                    sendSMS(Sms(receivedSms.phoneNumber, replyText))
+                                }
+                            }
+                        })
+                    }
+                })
+            }
+        }
+
+*/
+    }
+
+    private fun processBasal(intent: Intent) {
+        return
+    }
 
     private fun requestCarbs() {
 
@@ -564,7 +683,7 @@ class VoiceAssistantPlugin @Inject constructor(
                 if (spokenCommandArray[x].contains("profile", true)) reply += returnProfileResult()
                 if (spokenCommandArray[x].contains("target", true)) reply += returnTarget()
                 if (spokenCommandArray[x].contains("status", true)) reply += returnStatus()
-                if (spokenCommandArray[x].contains("summary", true))  reply += returnGlucose() + returnTrend() + returnDelta() + returnIOB() + returnCOB() + returnStatus()
+                if (spokenCommandArray[x].contains("summary", true))  reply += returnGlucose() + returnDelta() + returnIOB() + returnCOB() + returnStatus()
             }
         } else {
             userFeedback("I did not get your full request. Try again.", false)
@@ -695,7 +814,8 @@ class VoiceAssistantPlugin @Inject constructor(
 
     private fun returnCOB(): String {
         val cobInfo = iobCobCalculatorPlugin.getCobInfo(false, "Voice COB")
-        if (cobInfo.generateCOBString().matches("^[0-9]*$".toRegex())) {
+        aapsLogger.debug(LTag.VOICECOMMAND, "cobInfo is: " + cobInfo.generateCOBString())
+        if (cobInfo.generateCOBString().contains("[0-9]".toRegex())) {
             return "The carb on board is " + cobInfo.generateCOBString() + "."
         } else {
             return "I could not calculate the carb on board. Please wait for a new sensor reading and try again."
@@ -764,6 +884,7 @@ class VoiceAssistantPlugin @Inject constructor(
         output = output.replace(" m ", " minutes ", true)
         output = output.replace(" h ", " hour ", true)
         output = output.replace("-", " ", true)
+        output = output.replace("/", " ", true)
         aapsLogger.debug(LTag.VOICECOMMAND, "Updated command at step 3: " + output)
 
         //step 4: user defined replacements
@@ -771,7 +892,7 @@ class VoiceAssistantPlugin @Inject constructor(
         if (carbReplacements != "") output = processUserReplacements(output, carbReplacements,"carb")
         if (nameReplacements != "") output = processUserReplacements(output, nameReplacements, patientName)
         if (calculateReplacements != "") output = processUserReplacements(output, calculateReplacements,"calculate")
-        if (stopReplacements != "") output = processUserReplacements(output, stopReplacements,"stop")
+        if (cancelReplacements != "") output = processUserReplacements(output, cancelReplacements,"cancel")
 
         aapsLogger.debug(LTag.VOICECOMMAND, "Command after word replacements: " + output)
 
@@ -794,6 +915,14 @@ class VoiceAssistantPlugin @Inject constructor(
             requireIdentifier = sp.getBoolean(R.string.key_voiceassistant_requireidentifier, true)
             if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Require patient name set to " + requireIdentifier)
         }
+        if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_showbutton)) {
+            showButton = sp.getBoolean(R.string.key_voiceassistant_showbutton, true)
+            if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Show button set to " + showButton)
+        }
+        if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_fullsentenceresponses)) {
+            fullSentenceResponses = sp.getBoolean(R.string.key_voiceassistant_fullsentenceresponses, true)
+            if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Full sentence responses set to " + fullSentenceResponses)
+        }
         if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_bolusreplacements)) {
             bolusReplacements = sp.getString(R.string.key_voiceassistant_bolusreplacements,"")
             if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Bolus word replacements set to " + bolusReplacements)
@@ -810,9 +939,9 @@ class VoiceAssistantPlugin @Inject constructor(
             calculateReplacements = sp.getString(R.string.key_voiceassistant_calculatereplacements, "")
             if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Calculate word replacements set to " + calculateReplacements)
         }
-        if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_stopreplacements)) {
-            stopReplacements = sp.getString(R.string.key_voiceassistant_stopreplacements, "")
-            if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Stop word replacements set to " + stopReplacements)
+        if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_cancelreplacements)) {
+            cancelReplacements = sp.getString(R.string.key_voiceassistant_cancelreplacements, "")
+            if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Cancel word replacements set to " + cancelReplacements)
         }
 
         keyWordViolations = ""
@@ -820,7 +949,7 @@ class VoiceAssistantPlugin @Inject constructor(
         sp.putString(R.string.key_voiceassistant_carbreplacements, processKeyWordViolations(carbReplacements))
         sp.putString(R.string.key_voiceassistant_namereplacements, processKeyWordViolations(nameReplacements))
         sp.putString(R.string.key_voiceassistant_calculatereplacements, processKeyWordViolations(calculateReplacements))
-        sp.putString(R.string.key_voiceassistant_stopreplacements, processKeyWordViolations(stopReplacements))
+        sp.putString(R.string.key_voiceassistant_cancelreplacements, processKeyWordViolations(cancelReplacements))
         //TODO get the preferences screen to refresh automatically
 
         if (keyWordViolations != "") {
@@ -830,8 +959,13 @@ class VoiceAssistantPlugin @Inject constructor(
 
     private fun processKeyWordViolations(replacements: String): String {
 
+        if (replacements == "") return ""
+
         var output = ";" + replacements + ";"  //ensure we match whole words only, i.e. should find "carb" as it is a keyword, but ignore "carbs" because that is not
         output = output.replace(";;", ";", true)
+
+        if (output.length < 3 ) return ""
+
         for (x in 0 until keywordArray.size) {
             if (output.contains(";" + keywordArray[x] + ";", true)) {
                 keyWordViolations += keywordArray[x] + ", "

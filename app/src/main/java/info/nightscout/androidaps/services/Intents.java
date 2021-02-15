@@ -43,4 +43,5 @@ public interface Intents {
     // For voice responses
     String USER_FEEDBACK = "info.nightscout.androidaps.USER_FEEDBACK";
     String USER_FEEDBACK_RESPONSE = "info.nightscout.androidaps.USER_FEEDBACK_RESPONSE";
+    String TRIGGER_LISTEN = "info.nightscout.androidaps.TRIGGER_LISTEN";
 }

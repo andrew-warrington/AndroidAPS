@@ -1385,6 +1385,10 @@
     <string name="description_voiceassistant">Enables voice commands via a voice assistant, using third party apps Tasker and AutoVoice.</string>
     <string name="key_voiceassistant_commandsallowed" translatable="false">voiceassistant_commandsallowed</string>
     <string name="voiceassistant_commandsallowed">Allow control via a voice assistant</string>
+    <string name="voiceassistant_commandsallowed_summary">Requires third party apps Tasker and AutoVoice. See documentation.</string>
+    <string name="key_voiceassistant_showbutton" translatable="false">voiceassistant_showbutton</string>
+    <string name="voiceassistant_showbutton">Show voice assistant button</string>
+    <string name="voiceassistant_showbutton_summary">Show the voice assistant button on the overview</string>
     <string name="voiceassistant_carbslog">Received confirmed request to enter %1$s g of carb.</string>
     <string name="voiceassistant_carbsset">Carb %1$s grams entered successfully.</string>
     <string name="voiceassistant_carbsfailed">Entering %1$d grams of carb failed.</string>
@@ -1397,7 +1401,6 @@
     <string name="key_voiceassistant_requireidentifier" translatable="false">voiceassistant_requireidentifier</string>
     <string name="voiceassistant_requireidentifier_summary">Speak the patient\'s name with the command to ensure it goes to the right person when there are multiple AndroidAPS users in the same place. Set patient name in Preferences -> General.</string>
     <string name="voiceassistant_requireidentifier">Require patient name (recommended)</string>
-    <string name="voiceassistant_commandsallowed_summary">Requires third party apps Tasker and AutoVoice. See documentation.</string>
     <string name="key_voiceassistant_bolusreplacements" translatable="false">voiceassistant_bolusreplacements</string>
     <string name="voiceassistant_bolusreplacements_summary">Words which mean \"bolus\"</string>
     <string name="voiceassistant_bolusreplacements">Words which mean \"bolus\"</string>
@@ -1410,10 +1413,10 @@
     <string name="voiceassistant_calculatereplacements">Words which mean \"calculate\" (bolus wizard)</string>
     <string name="key_voiceassistant_calculatereplacements" translatable="false">voiceassistant_calculatereplacements</string>
     <string name="voiceassistant_calculatereplacements_defaults">wizard;how much</string>
-    <string name="voiceassistant_stopreplacements_summary">Words which mean \"stop\"</string>
-    <string name="voiceassistant_stopreplacements">Words which mean \"stop\"</string>
-    <string name="key_voiceassistant_stopreplacements" translatable="false">voiceassistant_stopreplacements</string>
-    <string name="voiceassistant_stopreplacements_defaults">no;cancel;abort</string>
+    <string name="voiceassistant_cancelreplacements_summary">Words which mean \"cancel\"</string>
+    <string name="voiceassistant_cancelreplacements">Words which mean \"cancel\"</string>
+    <string name="key_voiceassistant_cancelreplacements" translatable="false">voiceassistant_cancelreplacements</string>
+    <string name="voiceassistant_cancelreplacements_defaults">no;stop;abort</string>
     <string name="voiceassistant_namereplacements_summary">Patient nicknames</string>
     <string name="voiceassistant_namereplacements">Patient nicknames</string>
     <string name="key_voiceassistant_namereplacements" translatable="false">voiceassistant_namereplacements</string>

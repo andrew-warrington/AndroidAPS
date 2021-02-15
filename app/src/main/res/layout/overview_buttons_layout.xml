@@ -112,6 +112,18 @@
             android:textColor="@color/colorQuickWizardButton"
             android:textSize="10sp" />
 
+        <info.nightscout.androidaps.utils.ui.SingleClickButton
+            android:id="@+id/overview_voicebutton"
+            style="?android:attr/buttonStyle"
+            android:layout_width="0px"
+            android:layout_height="fill_parent"
+            android:layout_marginEnd="-4dp"
+            android:layout_weight="0.5"
+            android:drawableTop="@drawable/ic_voiceassistant"
+            android:text="@string/voiceassistant_shortname"
+            android:textColor="@color/white"
+            android:textSize="10sp" />
+
     </LinearLayout>
 
 </LinearLayout>

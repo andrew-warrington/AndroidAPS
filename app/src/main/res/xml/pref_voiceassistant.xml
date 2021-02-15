@@ -15,6 +15,12 @@
 
         <SwitchPreference
             android:defaultValue="true"
+            android:key="@string/key_voiceassistant_showbutton"
+            android:summary="@string/voiceassistant_showbutton_summary"
+            android:title="@string/voiceassistant_showbutton" />
+
+        <SwitchPreference
+            android:defaultValue="true"
             android:key="@string/key_voiceassistant_requireidentifier"
             android:dependency="@string/key_voiceassistant_commandsallowed"
             android:summary="@string/voiceassistant_requireidentifier_summary"
@@ -51,10 +57,10 @@
                 android:defaultValue="@string/voiceassistant_calculatereplacements_defaults"/>
 
             <info.nightscout.androidaps.utils.textValidator.ValidatingEditTextPreference
-                android:key="@string/key_voiceassistant_stopreplacements"
-                android:summary="@string/voiceassistant_stopreplacements_summary"
-                android:title="@string/voiceassistant_stopreplacements"
-                android:defaultValue="@string/voiceassistant_stopreplacements_defaults"/>
+                android:key="@string/key_voiceassistant_cancelreplacements"
+                android:summary="@string/voiceassistant_cancelreplacements_summary"
+                android:title="@string/voiceassistant_cancelreplacements"
+                android:defaultValue="@string/voiceassistant_cancelreplacements_defaults"/>
 
             <info.nightscout.androidaps.utils.textValidator.ValidatingEditTextPreference
                 android:key="@string/key_voiceassistant_namereplacements"

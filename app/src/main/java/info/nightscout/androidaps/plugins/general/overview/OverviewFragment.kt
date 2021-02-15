@@ -41,6 +41,7 @@ import info.nightscout.androidaps.plugins.general.nsclient.data.NSDeviceStatus
 import info.nightscout.androidaps.plugins.general.overview.activities.QuickWizardListActivity
 import info.nightscout.androidaps.plugins.general.overview.graphData.GraphData
 import info.nightscout.androidaps.plugins.general.overview.notifications.NotificationStore
+import info.nightscout.androidaps.plugins.general.voiceAssistant.VoiceAssistantPlugin
 import info.nightscout.androidaps.plugins.general.wear.ActionStringHandler
 import info.nightscout.androidaps.plugins.iob.iobCobCalculator.GlucoseStatus
 import info.nightscout.androidaps.plugins.iob.iobCobCalculator.IobCobCalculatorPlugin
@@ -51,6 +52,7 @@ import info.nightscout.androidaps.plugins.source.DexcomPlugin
 import info.nightscout.androidaps.plugins.source.XdripPlugin
 import info.nightscout.androidaps.plugins.treatments.TreatmentsPlugin
 import info.nightscout.androidaps.queue.CommandQueue
+import info.nightscout.androidaps.services.Intents
 import info.nightscout.androidaps.skins.SkinProvider
 import info.nightscout.androidaps.utils.*
 import info.nightscout.androidaps.utils.alertDialogs.OKDialog
@@ -196,6 +198,8 @@ class OverviewFragment : DaggerFragment(), View.OnClickListener, OnLongClickList
         overview_apsmode?.setOnClickListener(this)
         overview_apsmode?.setOnLongClickListener(this)
         overview_activeprofile?.setOnLongClickListener(this)
+        overview_voicebutton?.setOnClickListener(this)
+        overview_voicebutton?.setOnLongClickListener(this)
     }
 
     override fun onPause() {
@@ -285,6 +289,7 @@ class OverviewFragment : DaggerFragment(), View.OnClickListener, OnLongClickList
                 R.id.overview_wizardbutton -> protectionCheck.queryProtection(activity, ProtectionCheck.Protection.BOLUS, UIRunnable { if(isAdded) WizardDialog().show(childFragmentManager, "Overview") })
                 R.id.overview_insulinbutton -> protectionCheck.queryProtection(activity, ProtectionCheck.Protection.BOLUS, UIRunnable { if(isAdded) InsulinDialog().show(childFragmentManager, "Overview") })
                 R.id.overview_quickwizardbutton -> protectionCheck.queryProtection(activity, ProtectionCheck.Protection.BOLUS, UIRunnable { if(isAdded) onClickQuickWizard() })
+                R.id.overview_voicebutton -> protectionCheck.queryProtection(activity, ProtectionCheck.Protection.BOLUS, UIRunnable { if(isAdded) onClickVoiceButton() })
                 R.id.overview_carbsbutton -> protectionCheck.queryProtection(activity, ProtectionCheck.Protection.BOLUS, UIRunnable { if(isAdded) CarbsDialog().show(childFragmentManager, "Overview") })
                 R.id.overview_temptarget -> protectionCheck.queryProtection(activity, ProtectionCheck.Protection.BOLUS, UIRunnable { if(isAdded) TempTargetDialog().show(childFragmentManager, "Overview") })
 
@@ -375,6 +380,8 @@ class OverviewFragment : DaggerFragment(), View.OnClickListener, OnLongClickList
                 return true
             }
 
+            R.id.overview_voicebutton -> v.performClick()
+
             R.id.overview_apsmode -> {
                 activity?.let { activity ->
                     protectionCheck.queryProtection(activity, ProtectionCheck.Protection.BOLUS, UIRunnable {
@@ -390,6 +397,10 @@ class OverviewFragment : DaggerFragment(), View.OnClickListener, OnLongClickList
 
         }
         return false
+    }
+
+    private fun onClickVoiceButton() {
+        context?.sendBroadcast(Intent(Intents.TRIGGER_LISTEN))
     }
 
     private fun onClickQuickWizard() {
@@ -471,6 +482,9 @@ class OverviewFragment : DaggerFragment(), View.OnClickListener, OnLongClickList
         val dexcomIsSource = dexcomPlugin.isEnabled(PluginType.BGSOURCE)
         overview_calibrationbutton?.visibility = ((xDripIsBgSource || dexcomIsSource) && actualBG != null && sp.getBoolean(R.string.key_show_calibration_button, true)).toVisibility()
         overview_cgmbutton?.visibility = (sp.getBoolean(R.string.key_show_cgm_button, false) && (xDripIsBgSource || dexcomIsSource)).toVisibility()
+
+        // **** voice assistant button ****
+        overview_voicebutton?.visibility = (sp.getBoolean(R.string.key_voiceassistant_commandsallowed, false) && sp.getBoolean(R.string.key_voiceassistant_showbutton, true)).toVisibility()
 
     }
 
