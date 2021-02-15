@@ -14,6 +14,7 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 //TODO implement bolus password?
 //TODO move word replacements to fragment
 //TODO implement temp targets
+//TODO when voice disabled in config builder
 
 import android.content.Context
 import android.content.Intent
