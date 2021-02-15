@@ -16,6 +16,7 @@
         <SwitchPreference
             android:defaultValue="true"
             android:key="@string/key_voiceassistant_showbutton"
+            android:dependency="@string/key_voiceassistant_commandsallowed"
             android:summary="@string/voiceassistant_showbutton_summary"
             android:title="@string/voiceassistant_showbutton" />
 
