@@ -104,7 +104,7 @@ class VoiceAssistantPlugin @Inject constructor(
     private var keyWordViolations = ""
     private var calculateReplacements = ""
     private var stopReplacements = ""
-    private var keywordArray: Array<String> = arrayOf("carb","bolus","profile","switch","calculate","grams","minute","hour","unit","glucose","iob","insulin","cob","trend","basal","bolus","delta","target","summary","yes","stop","automation")
+    private var keywordArray: Array<String> = arrayOf("carb","bolus","profile","switch","calculate","gram","minute","hour","unit","glucose","iob","insulin","cob","trend","basal","bolus","delta","target","status","summary","yes","stop","automation")
     lateinit var spokenCommandArray: Array<String>
     var messages = ArrayList<String>()
 
@@ -215,7 +215,7 @@ class VoiceAssistantPlugin @Inject constructor(
 
         var amount = ""
         for (x in 0 until spokenCommandArray.size) {
-            if (spokenCommandArray[x] == "grams") amount = spokenCommandArray[x-1]
+            if (spokenCommandArray[x].contains("gram", true)) amount = spokenCommandArray[x-1]
         }
         if (constraintsOk(amount,"carb")) {
             var replyText = "To confirm adding " + amount + " grams of carb"
@@ -365,8 +365,8 @@ class VoiceAssistantPlugin @Inject constructor(
         var insulinAmount = "0"
         var carbAmount = "0"
         for (x in 0 until spokenCommandArray.size) {
-            if (spokenCommandArray[x] == "units") insulinAmount = spokenCommandArray[x-1]
-            if (spokenCommandArray[x] == "grams") carbAmount = spokenCommandArray[x-1]
+            if (spokenCommandArray[x].contains("unit", true)) insulinAmount = spokenCommandArray[x-1]
+            if (spokenCommandArray[x].contains("gram", true)) carbAmount = spokenCommandArray[x-1]
         }
 
         if (constraintsOk(insulinAmount, "bolus") && constraintsOk(carbAmount, "carb", false)) {
@@ -457,8 +457,8 @@ class VoiceAssistantPlugin @Inject constructor(
         var meal = false
         var carbAmount = "0"
         for (x in 0 until spokenCommandArray.size) {
-            if (spokenCommandArray[x] == "grams") carbAmount = spokenCommandArray[x-1]
-            if (spokenCommandArray[x] == "meal") meal = true
+            if (spokenCommandArray[x].contains("gram", true)) carbAmount = spokenCommandArray[x-1]
+            if (spokenCommandArray[x].contains("meal", true)) meal = true
         }
 
         if (constraintsOk(carbAmount, "carb", false)) {
@@ -498,10 +498,10 @@ class VoiceAssistantPlugin @Inject constructor(
             var replyText = ""
             val carbAmountD = SafeParse.stringToDouble(carbAmount)
             if (bolusWizard.calculatedTotalInsulin > 0.0) {
-                replyText += "Bolus wizard results is " + bolusWizard.calculatedTotalInsulin.toString() + " units of insulin for glucose " + bgReading.valueToUnitsToString(units) + " " + units
+                replyText += "Bolus wizard calculates " + bolusWizard.calculatedTotalInsulin.toString() + " units of insulin for glucose " + bgReading.valueToUnitsToString(units) + " " + units
                 replyText += if (carbAmountD > 0.0) " and " + carbAmount + " grams of carb." else "."
             } else if (bolusWizard.carbsEquivalent.toInt() > 0) {
-                replyText += "Bolus wizard results is that " + DecimalFormatter.to0Decimal(bolusWizard.carbsEquivalent).toString()
+                replyText += "Bolus wizard calculates that " + DecimalFormatter.to0Decimal(bolusWizard.carbsEquivalent).toString()
                 if (carbAmountD > 0) replyText += " more"
                 replyText += " grams of carb are required."
             }
@@ -563,7 +563,8 @@ class VoiceAssistantPlugin @Inject constructor(
                 if (spokenCommandArray[x].contains("delta", true)) reply += returnDelta()
                 if (spokenCommandArray[x].contains("profile", true)) reply += returnProfileResult()
                 if (spokenCommandArray[x].contains("target", true)) reply += returnTarget()
-                if (spokenCommandArray[x].contains("summary", true))  reply += returnGlucose() + returnDelta() + returnIOB() + returnCOB() + returnStatus()
+                if (spokenCommandArray[x].contains("status", true)) reply += returnStatus()
+                if (spokenCommandArray[x].contains("summary", true))  reply += returnGlucose() + returnTrend() + returnDelta() + returnIOB() + returnCOB() + returnStatus()
             }
         } else {
             userFeedback("I did not get your full request. Try again.", false)
@@ -580,6 +581,7 @@ class VoiceAssistantPlugin @Inject constructor(
         val actualBG = iobCobCalculatorPlugin.actualBg()
         val lastBG = iobCobCalculatorPlugin.lastBg()
         val units = profileFunction.getUnits()
+
         var output = ""
         if (actualBG != null) {
             output = "The current sensor glucose reading is " + actualBG.valueToUnitsToString(units) + " " + units + "."
@@ -651,7 +653,13 @@ class VoiceAssistantPlugin @Inject constructor(
     }
 
     private fun returnTrend(): String {
-        return "I don't do trend requests yet."
+        val actualBG = iobCobCalculatorPlugin.actualBg()
+
+        if (actualBG != null) {
+            return "The trend is " + actualBG.direction
+        } else {
+            return "I could not calculate the trend. Please wait for a new sensor reading and try again."
+        }
     }
 
     private fun returnTarget(): String {
@@ -687,7 +695,11 @@ class VoiceAssistantPlugin @Inject constructor(
 
     private fun returnCOB(): String {
         val cobInfo = iobCobCalculatorPlugin.getCobInfo(false, "Voice COB")
-        return "The carb on board is " + cobInfo.generateCOBString() + "."
+        if (cobInfo.generateCOBString().matches("^[0-9]*$".toRegex())) {
+            return "The carb on board is " + cobInfo.generateCOBString() + "."
+        } else {
+            return "I could not calculate the carb on board. Please wait for a new sensor reading and try again."
+        }
     }
 
     private fun returnBasalRate(): String {
@@ -819,6 +831,7 @@ class VoiceAssistantPlugin @Inject constructor(
     private fun processKeyWordViolations(replacements: String): String {
 
         var output = ";" + replacements + ";"  //ensure we match whole words only, i.e. should find "carb" as it is a keyword, but ignore "carbs" because that is not
+        output = output.replace(";;", ";", true)
         for (x in 0 until keywordArray.size) {
             if (output.contains(";" + keywordArray[x] + ";", true)) {
                 keyWordViolations += keywordArray[x] + ", "
