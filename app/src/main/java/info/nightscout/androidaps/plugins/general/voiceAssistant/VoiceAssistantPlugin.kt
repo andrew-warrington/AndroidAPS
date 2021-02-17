@@ -18,6 +18,7 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 
 import android.content.Context
 import android.content.Intent
+import android.speech.SpeechRecognizer
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreference
@@ -35,9 +36,6 @@ import info.nightscout.androidaps.logging.AAPSLogger
 import info.nightscout.androidaps.logging.LTag
 import info.nightscout.androidaps.plugins.bus.RxBusWrapper
 import info.nightscout.androidaps.plugins.configBuilder.ConstraintChecker
-import info.nightscout.androidaps.plugins.general.smsCommunicator.AuthRequest
-import info.nightscout.androidaps.plugins.general.smsCommunicator.Sms
-import info.nightscout.androidaps.plugins.general.smsCommunicator.SmsAction
 import info.nightscout.androidaps.plugins.general.smsCommunicator.otp.OneTimePassword
 import info.nightscout.androidaps.plugins.general.smsCommunicator.otp.OneTimePasswordValidationResult
 import info.nightscout.androidaps.plugins.iob.iobCobCalculator.GlucoseStatus
@@ -56,7 +54,6 @@ import info.nightscout.androidaps.utils.wizard.BolusWizard
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
 import kotlinx.android.synthetic.main.configbuilder_single_plugin.view.*
-import org.apache.commons.lang3.StringUtils
 import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -110,7 +107,7 @@ class VoiceAssistantPlugin @Inject constructor(
     private var keyWordViolations = ""
     private var calculateReplacements = ""
     private var cancelReplacements = ""
-    private var keywordArray: Array<String> = arrayOf("carb","bolus","profile","switch","calculate","gram","minute","hour","unit","glucose","iob","insulin","cob","trend","basal","bolus","delta","target","status","summary","yes","cancel","automation")
+    private var keywordArray: Array<String> = arrayOf("carb", "bolus", "profile", "switch", "calculate", "gram", "minute", "hour", "unit", "glucose", "iob", "insulin", "cob", "trend", "basal", "bolus", "delta", "target", "status", "summary", "yes", "cancel", "automation")
     lateinit var spokenCommandArray: Array<String>
     var messages = ArrayList<String>()
 
@@ -178,7 +175,7 @@ class VoiceAssistantPlugin @Inject constructor(
             aapsLogger.debug(LTag.VOICECOMMAND, "No parameters received.")
         }
 
-        val receivedCommand: String? = intent.getStringExtra("command")
+        val receivedCommand: String? = intent.getStringExtra("query")
         if (receivedCommand != null) {
 
             aapsLogger.debug(LTag.VOICECOMMAND, "Command received: " + receivedCommand)
@@ -213,16 +210,17 @@ class VoiceAssistantPlugin @Inject constructor(
             return
         }
 
-        if (command.contains("automation",true)) { requestAutomation() ; return }
+        if (command.contains("automation", true)) { requestAutomation() ; return }
         else if (command.contains("calculate", true)) { requestBolusWizard() ; return }
-        else if (command.contains("bolus",true) && command.contains("[0-9]\\sgram".toRegex(RegexOption.IGNORE_CASE)) && command.contains("[0-9]\\sunit".toRegex(RegexOption.IGNORE_CASE))) { requestBolus() ; return }
-        else if (command.contains("bolus",true) && command.contains("[0-9]\\sgram".toRegex(RegexOption.IGNORE_CASE))) { requestBolusWizard() ; return }
-        else if (command.contains("bolus",true) && command.contains("[0-9]\\sunit".toRegex(RegexOption.IGNORE_CASE))) { requestBolus() ; return }
-        else if (command.contains("carb",true) && command.contains("[0-9]\\sgram".toRegex(RegexOption.IGNORE_CASE))) { requestCarbs() ; return }
-        else if (command.contains("basal",true) && (command.contains("[0-9]\\sunit".toRegex(RegexOption.IGNORE_CASE))) ||
+        else if (command.contains("bolus", true) && command.contains("[0-9]\\sgram".toRegex(RegexOption.IGNORE_CASE)) && command.contains("[0-9]\\sunit".toRegex(RegexOption.IGNORE_CASE))) { requestBolus() ; return }
+        else if (command.contains("bolus", true) && command.contains("[0-9]\\sgram".toRegex(RegexOption.IGNORE_CASE))) { requestBolusWizard() ; return }
+        else if (command.contains("bolus", true) && command.contains("[0-9]\\sunit".toRegex(RegexOption.IGNORE_CASE))) { requestBolus() ; return }
+        else if (command.contains("insulin", true) && command.contains("[0-9]\\sunit".toRegex(RegexOption.IGNORE_CASE))) { requestBolus() ; return }
+        else if (command.contains("carb", true) && command.contains("[0-9]\\sgram".toRegex(RegexOption.IGNORE_CASE))) { requestCarbs() ; return }
+        else if (command.contains("basal", true) && (command.contains("[0-9]\\sunit".toRegex(RegexOption.IGNORE_CASE))) ||
             command.contains("eating soon", true) || command.contains("activity", true) ||
             command.contains("hypo", true) || command.contains("cancel", true)) { requestBasal() ; return }
-        else if (command.contains("profile",true) && command.contains("switch", true)) { requestProfileSwitch() ; return }
+        else if (command.contains("profile", true) && command.contains("switch", true)) { requestProfileSwitch() ; return }
         else { processInfoRequest() ; return }
     }
 
@@ -335,9 +333,9 @@ class VoiceAssistantPlugin @Inject constructor(
 
         var amount = ""
         for (x in 0 until spokenCommandArray.size) {
-            if (spokenCommandArray[x].contains("gram", true)) amount = spokenCommandArray[x-1]
+            if (spokenCommandArray[x].contains("gram", true)) amount = spokenCommandArray[x - 1]
         }
-        if (constraintsOk(amount,"carb")) {
+        if (constraintsOk(amount, "carb")) {
             var replyText = "To confirm adding " + amount + " grams of carb"
             if (requireIdentifier as Boolean && patientName != "") replyText += " for " + patientName
             replyText += ", say Yes."
@@ -410,11 +408,11 @@ class VoiceAssistantPlugin @Inject constructor(
         var pindex = ""
         for (x in 0 until spokenCommandArray.size) {
             if (spokenCommandArray[x].contains("minute", true) &&
-                spokenCommandArray[x-1].contains("[0-9]".toRegex())) durationMin = spokenCommandArray[x-1]
+                spokenCommandArray[x - 1].contains("[0-9]".toRegex())) durationMin = spokenCommandArray[x - 1]
             if (spokenCommandArray[x].contains("hour", true) &&
-                spokenCommandArray[x-1].contains("[0-9]".toRegex())) durationHour = spokenCommandArray[x-1]
+                spokenCommandArray[x - 1].contains("[0-9]".toRegex())) durationHour = spokenCommandArray[x - 1]
             if (spokenCommandArray[x].contains("percent", true) &&
-                spokenCommandArray[x-1].contains("[0-9]".toRegex())) percentage = spokenCommandArray[x-1]
+                spokenCommandArray[x - 1].contains("[0-9]".toRegex())) percentage = spokenCommandArray[x - 1]
         }
         if (percentage == "0") {
             userFeedback("It is not possible to have a 0% profile. Try again.")
@@ -448,7 +446,7 @@ class VoiceAssistantPlugin @Inject constructor(
         val counter: Long = DateUtil.now() / 30000L
         val parameters = "profileswitchconfirm;" + totp.generateOneTimePassword(counter) + ";" + pindex + ";" + percentage + ";" + duration.toString() + ";" + patientName
 
-        userFeedback(replyText,true,parameters)
+        userFeedback(replyText, true, parameters)
     }
 
     private fun processProfileSwitch(intent: Intent) {
@@ -485,8 +483,8 @@ class VoiceAssistantPlugin @Inject constructor(
         var insulinAmount = "0"
         var carbAmount = "0"
         for (x in 0 until spokenCommandArray.size) {
-            if (spokenCommandArray[x].contains("unit", true)) insulinAmount = spokenCommandArray[x-1]
-            if (spokenCommandArray[x].contains("gram", true)) carbAmount = spokenCommandArray[x-1]
+            if (spokenCommandArray[x].contains("unit", true)) insulinAmount = spokenCommandArray[x - 1]
+            if (spokenCommandArray[x].contains("gram", true)) carbAmount = spokenCommandArray[x - 1]
         }
 
         if (constraintsOk(insulinAmount, "bolus") && constraintsOk(carbAmount, "carb", false)) {
@@ -577,7 +575,7 @@ class VoiceAssistantPlugin @Inject constructor(
         var meal = false
         var carbAmount = "0"
         for (x in 0 until spokenCommandArray.size) {
-            if (spokenCommandArray[x].contains("gram", true)) carbAmount = spokenCommandArray[x-1]
+            if (spokenCommandArray[x].contains("gram", true)) carbAmount = spokenCommandArray[x - 1]
             if (spokenCommandArray[x].contains("meal", true)) meal = true
         }
 
@@ -602,8 +600,6 @@ class VoiceAssistantPlugin @Inject constructor(
                 return
             }
 
-            val actualBG = iobCobCalculatorPlugin.actualBg()
-            val lastBG = iobCobCalculatorPlugin.lastBg()
             val units = profileFunction.getUnits()
 
             val cobInfo = iobCobCalculatorPlugin.getCobInfo(false, "Voice assistant wizard")
@@ -775,6 +771,37 @@ class VoiceAssistantPlugin @Inject constructor(
     private fun returnTrend(): String {
         val actualBG = iobCobCalculatorPlugin.actualBg()
 
+        //TODO --- this.
+        /*         switch (delta_name) {
+            case "DoubleDown":
+                delta_name = xdrip.getAppContext().getString(R.string.DoubleDown);
+                break;
+            case "SingleDown":
+                delta_name = xdrip.getAppContext().getString(R.string.SingleDown);
+                break;
+            case "FortyFiveDown":
+                delta_name = xdrip.getAppContext().getString(R.string.FortyFiveDown);
+                break;
+            case "Flat":
+                delta_name = xdrip.getAppContext().getString(R.string.Flat);
+                break;
+            case "FortyFiveUp":
+                delta_name = xdrip.getAppContext().getString(R.string.FortyFiveUp);
+                break;
+            case "SingleUp":
+                delta_name = xdrip.getAppContext().getString(R.string.SingleUp);
+                break;
+            case "DoubleUp":
+                delta_name = xdrip.getAppContext().getString(R.string.DoubleUp);
+                break;
+            case "NOT COMPUTABLE":
+                delta_name = "";
+                break;
+
+
+         */
+
+
         if (actualBG != null) {
             return "The trend is " + actualBG.direction
         } else {
@@ -881,7 +908,7 @@ class VoiceAssistantPlugin @Inject constructor(
         output = output.replace(" g ", " grams ", true)
         output = output.replace(" % ", " percent ", true)
         output = output.replace(" u ", " units ", true)
-        output = output.replace(" ' "," minutes ", true)
+        output = output.replace(" ' ", " minutes ", true)
         output = output.replace(" m ", " minutes ", true)
         output = output.replace(" h ", " hour ", true)
         output = output.replace("-", " ", true)
@@ -889,11 +916,11 @@ class VoiceAssistantPlugin @Inject constructor(
         aapsLogger.debug(LTag.VOICECOMMAND, "Updated command at step 3: " + output)
 
         //step 4: user defined replacements
-        if (bolusReplacements != "") output = processUserReplacements(output, bolusReplacements,"bolus")
-        if (carbReplacements != "") output = processUserReplacements(output, carbReplacements,"carb")
+        if (bolusReplacements != "") output = processUserReplacements(output, bolusReplacements, "bolus")
+        if (carbReplacements != "") output = processUserReplacements(output, carbReplacements, "carb")
         if (nameReplacements != "") output = processUserReplacements(output, nameReplacements, patientName)
-        if (calculateReplacements != "") output = processUserReplacements(output, calculateReplacements,"calculate")
-        if (cancelReplacements != "") output = processUserReplacements(output, cancelReplacements,"cancel")
+        if (calculateReplacements != "") output = processUserReplacements(output, calculateReplacements, "calculate")
+        if (cancelReplacements != "") output = processUserReplacements(output, cancelReplacements, "cancel")
 
         aapsLogger.debug(LTag.VOICECOMMAND, "Command after word replacements: " + output)
 
@@ -902,7 +929,7 @@ class VoiceAssistantPlugin @Inject constructor(
         return output // cleanedCommand
     }
 
-    private fun processUserReplacements(command: String, replacementWords:String, newWord:String): String {
+    private fun processUserReplacements(command: String, replacementWords: String, newWord: String): String {
         var output = command
 
         val wordArray: Array<String> = replacementWords.trim().split(Regex(";")).toTypedArray()
@@ -925,11 +952,11 @@ class VoiceAssistantPlugin @Inject constructor(
             if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Full sentence responses set to " + fullSentenceResponses)
         }
         if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_bolusreplacements)) {
-            bolusReplacements = sp.getString(R.string.key_voiceassistant_bolusreplacements,"")
+            bolusReplacements = sp.getString(R.string.key_voiceassistant_bolusreplacements, "")
             if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Bolus word replacements set to " + bolusReplacements)
         }
         if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_carbreplacements)) {
-            carbReplacements = sp.getString(R.string.key_voiceassistant_carbreplacements,"")
+            carbReplacements = sp.getString(R.string.key_voiceassistant_carbreplacements, "")
             if (ev != null) aapsLogger.debug(LTag.VOICECOMMAND, "Settings change: Carb word replacements set to " + carbReplacements)
         }
         if (ev == null || ev.isChanged(resourceHelper, R.string.key_voiceassistant_namereplacements)) {

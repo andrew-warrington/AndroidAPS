@@ -1428,5 +1428,6 @@
     <string name="key_voiceassistant_fullsentenceresponses" translatable="false">voiceassistant_fullsentenceresponses</string>
     <string name="voiceassistant_fullsentenceresponses_summary">Have AndroidAPS respond in full sentences. When off, responses will be shorter. (short responses not yet implemented)</string>
     <string name="voiceassistant_fullsentenceresponses">Verbose</string>
+    <string name="voicecommand_speakprompt">Command for AndroidAPS</string>
 
 </resources>

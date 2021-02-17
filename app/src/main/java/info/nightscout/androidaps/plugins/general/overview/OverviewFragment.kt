@@ -1,6 +1,8 @@
 package info.nightscout.androidaps.plugins.general.overview
 
 import android.annotation.SuppressLint
+import android.app.Activity
+import android.app.Instrumentation
 import android.app.NotificationManager
 import android.content.ActivityNotFoundException
 import android.content.Context
@@ -10,6 +12,7 @@ import android.graphics.Paint
 import android.graphics.drawable.AnimationDrawable
 import android.os.Bundle
 import android.os.Handler
+import android.speech.RecognizerIntent
 import android.util.DisplayMetrics
 import android.view.LayoutInflater
 import android.view.View
@@ -18,6 +21,8 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.TextView
+import androidx.activity.result.ActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.text.toSpanned
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -32,6 +37,7 @@ import info.nightscout.androidaps.dialogs.*
 import info.nightscout.androidaps.events.*
 import info.nightscout.androidaps.interfaces.*
 import info.nightscout.androidaps.logging.AAPSLogger
+import info.nightscout.androidaps.logging.LTag
 import info.nightscout.androidaps.plugins.aps.loop.LoopPlugin
 import info.nightscout.androidaps.plugins.aps.loop.events.EventNewOpenLoopNotification
 import info.nightscout.androidaps.plugins.bus.RxBusWrapper
@@ -115,6 +121,7 @@ class OverviewFragment : DaggerFragment(), View.OnClickListener, OnLongClickList
     @Inject lateinit var config: Config
     @Inject lateinit var dateUtil: DateUtil
     @Inject lateinit var databaseHelper: DatabaseHelperInterface
+    @Inject lateinit var voiceAssistantPlugin: VoiceAssistantPlugin
 
     private val disposable = CompositeDisposable()
 
@@ -132,6 +139,14 @@ class OverviewFragment : DaggerFragment(), View.OnClickListener, OnLongClickList
     private var carbAnimation: AnimationDrawable? = null
 
     private val graphLock = Object()
+
+    val startForResult = registerForActivityResult(ActivityResultContracts.StartActivityForResult())
+    { result: ActivityResult ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            aapsLogger.debug(LTag.VOICECOMMAND, result.data.toString())
+            result.data?.let { voiceAssistantPlugin.processCommand(it) }
+        }
+    }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?,
                               savedInstanceState: Bundle?): View? {
@@ -400,8 +415,13 @@ class OverviewFragment : DaggerFragment(), View.OnClickListener, OnLongClickList
     }
 
     private fun onClickVoiceButton() {
-        context?.sendBroadcast(Intent(Intents.TRIGGER_LISTEN))
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, resourceHelper.gs(R.string.voicecommand_speakprompt))
+        startForResult.launch(intent)
     }
+
 
     private fun onClickQuickWizard() {
         val actualBg = iobCobCalculatorPlugin.actualBg()
