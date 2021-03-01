@@ -103,14 +103,14 @@ public class SafetyPlugin extends PluginBase implements ConstraintsInterface {
         String mode = sp.getString(R.string.key_aps_mode, "open");
         if ((mode.equals("open")))
             value.set(getAapsLogger(), false, getResourceHelper().gs(R.string.closedmodedisabledinpreferences), this);
-
-        if (!buildHelper.isEngineeringModeOrRelease()) {
+//Andrew settings
+/*        if (!buildHelper.isEngineeringModeOrRelease()) {
             if (value.value()) {
                 Notification n = new Notification(Notification.TOAST_ALARM, getResourceHelper().gs(R.string.closed_loop_disabled_on_dev_branch), Notification.NORMAL);
                 rxBus.send(new EventNewNotification(n));
             }
             value.set(getAapsLogger(), false, getResourceHelper().gs(R.string.closed_loop_disabled_on_dev_branch), this);
-        }
+       } */
         PumpInterface pump = activePlugin.getActivePump();
         if (!pump.isFakingTempsByExtendedBoluses() && treatmentsPlugin.isInHistoryExtendedBoluslInProgress()) {
             value.set(getAapsLogger(), false, getResourceHelper().gs(R.string.closed_loop_disabled_with_eb), this);
