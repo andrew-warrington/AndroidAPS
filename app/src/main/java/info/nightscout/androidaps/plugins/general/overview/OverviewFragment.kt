@@ -141,12 +141,7 @@ class OverviewFragment : DaggerFragment(), View.OnClickListener, OnLongClickList
     private val graphLock = Object()
 
     val startForResult = registerForActivityResult(ActivityResultContracts.StartActivityForResult())
-    { result: ActivityResult ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            aapsLogger.debug(LTag.VOICECOMMAND, result.data.toString())
-            result.data?.let { voiceAssistantPlugin.processCommand(it) }
-        }
-    }
+    { result: ActivityResult -> if (result.resultCode == Activity.RESULT_OK) { result.data?.let { voiceAssistantPlugin.processCommand(it) } } }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?,
                               savedInstanceState: Bundle?): View? {
@@ -415,6 +410,7 @@ class OverviewFragment : DaggerFragment(), View.OnClickListener, OnLongClickList
     }
 
     private fun onClickVoiceButton() {
+        aapsLogger.debug(LTag.VOICECOMMAND, "Voice button clicked!")
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())

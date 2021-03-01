@@ -1,7 +1,6 @@
 package info.nightscout.androidaps.plugins.general.voiceAssistant.activities
 
 // Receives intents from an external voice assistant and forwards to the VoiceAssistantPlugin
-// As of Jan 2021 recommend voice assistant integration via Tasker and AutoVoice apps on Android, as these work with both Google and Alexa
 
 import android.os.Bundle
 import info.nightscout.androidaps.activities.NoSplashAppCompatActivity
