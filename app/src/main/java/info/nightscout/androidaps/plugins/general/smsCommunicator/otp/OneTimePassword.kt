@@ -78,8 +78,7 @@ class OneTimePassword @Inject constructor(
         pin = sp.getString(R.string.key_smscommunicator_otp_password, "").trim()
     }
 
-    //changed from private to public so that VoiceAssistantActivity can generate an OTP.
-    fun generateOneTimePassword(counter: Long): String =
+    private fun generateOneTimePassword(counter: Long): String =
         key?.let { String.format("%06d", totp.generateOneTimePassword(key, counter)) } ?: ""
 
     /**

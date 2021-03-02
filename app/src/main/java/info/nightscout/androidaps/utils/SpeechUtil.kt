@@ -28,7 +28,6 @@ class SpeechUtil @Inject constructor(
 
     lateinit var tts: TextToSpeech
 
-    // delay parameter allows you to force a millis delay before playing to avoid clash with notification sounds triggered at the same time
     @JvmOverloads fun say(text: String, delay: Long = 0, retry: Int = 0): Int {
         var result = 0
         Thread(Runnable {
@@ -53,20 +52,6 @@ class SpeechUtil @Inject constructor(
                         //
                     }
                 }
-                /*
-
-                // pull in preferences for speech but set some lower bounds to avoid bad sounding speech
-                val speed = Math.max(0.2f, sp.getInt("speech_speed", 10) / 10f)
-                val pitch = Math.max(0.4f, sp.getInt("speech_pitch", 10) / 10f)
-
-                // set the rates
-                try {
-                    tts.setSpeechRate(speed)
-                    tts.setPitch(pitch)
-                } catch (e: Exception) {
-                    aapsLogger.debug(LTag.VOICECOMMAND, "Deep TTS problem setting speech rates: $e")
-                }
-                 */
                 try {
                     result = tts.speak(text, TextToSpeech.QUEUE_ADD, null)
                 } catch (e: NullPointerException) {
@@ -83,7 +68,7 @@ class SpeechUtil @Inject constructor(
                 }
                 // only get here if retries exceeded
                 if (result != TextToSpeech.SUCCESS) {
-                    aapsLogger.debug(LTag.VOICECOMMAND, "Failed to speak after: $retry retries!!!")
+                    aapsLogger.debug(LTag.VOICECOMMAND, "Failed to speak after: $retry retries.")
                 } else {
                     aapsLogger.debug(LTag.VOICECOMMAND, "Successfully spoke: $text")
                 }

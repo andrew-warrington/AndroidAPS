@@ -11,22 +11,30 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 //TODO word replacements: No duplicates
 //TODO create word replacements capability for all keywords
 //TODO automation
+//TODO check for device security and device is unlocked
 //TODO implement bolus password?
 //TODO move word replacements to fragment
 //TODO implement temp targets
 //TODO when voice disabled in config builder icon should disappear
-//TODO bolus wizard always mentions carb is COB < 0
-//TODO set generateOneTimePassword to back to private
+//TODO bolus wizard always mentions carb if COB < 0
+//TODO clean up mess in SpeechUtil or just copy the function here.
+//TODO get "listen" to wait for "say" to complete
+//TODO create a dialog box for recognition
+//TODO prefer local?
+//TODO hotword (Android 11+)
+//TODO permissions only requested when needed, i.e. when VoiceAssistant is set to on.
+//TODO Bolus 1.40 units delivered successfully <- remove the trailing 0
+//TODO Bolus wizard asks to say I confirm
+//TODO Profile switch executes on I confirm ?
+//TODO Bolus wizard does not listen after a "carbs needed"
 
-import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.os.Bundle
+import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.widget.Toast
-import androidx.activity.result.ActivityResult
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.ActivityResultRegistry
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreference
@@ -44,10 +52,6 @@ import info.nightscout.androidaps.logging.AAPSLogger
 import info.nightscout.androidaps.logging.LTag
 import info.nightscout.androidaps.plugins.bus.RxBusWrapper
 import info.nightscout.androidaps.plugins.configBuilder.ConstraintChecker
-import info.nightscout.androidaps.plugins.general.overview.OverviewFragment
-import info.nightscout.androidaps.plugins.general.smsCommunicator.otp.OneTimePassword
-import info.nightscout.androidaps.plugins.general.smsCommunicator.otp.OneTimePasswordValidationResult
-import info.nightscout.androidaps.plugins.general.voiceAssistant.activities.VoiceResultActivity
 import info.nightscout.androidaps.plugins.iob.iobCobCalculator.GlucoseStatus
 import info.nightscout.androidaps.plugins.iob.iobCobCalculator.IobCobCalculatorPlugin
 import info.nightscout.androidaps.plugins.treatments.TreatmentsPlugin
@@ -58,13 +62,12 @@ import info.nightscout.androidaps.utils.FabricPrivacy
 import info.nightscout.androidaps.utils.SafeParse
 import info.nightscout.androidaps.utils.SpeechUtil
 import info.nightscout.androidaps.utils.extensions.plusAssign
-import info.nightscout.androidaps.utils.extensions.waitMillis
+import info.nightscout.androidaps.utils.extensions.runOnUiThread
 import info.nightscout.androidaps.utils.resources.ResourceHelper
 import info.nightscout.androidaps.utils.sharedPreferences.SP
 import info.nightscout.androidaps.utils.wizard.BolusWizard
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
-//import kotlinx.android.synthetic.main.configbuilder_single_plugin.view.*
 import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -85,7 +88,6 @@ class VoiceAssistantPlugin @Inject constructor(
     private val dateUtil: DateUtil,
     private val rxBus: RxBusWrapper,
     private val fabricPrivacy: FabricPrivacy,
-    private val totp: OneTimePassword,
     private val speechUtil: SpeechUtil,
 ) : PluginBase(PluginDescription()
     .mainType(PluginType.GENERAL)
@@ -99,8 +101,7 @@ class VoiceAssistantPlugin @Inject constructor(
 ) {
 
     private val disposable = CompositeDisposable()
-    private val voiceResultActivity = VoiceResultActivity()
-    private val pin = sp.getString(R.string.key_smscommunicator_otp_password, "").trim()
+    private val speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
     private var fullCommandReceived = false
     private var detailedStatus = false
     private var requireIdentifier: Any = true
@@ -114,15 +115,9 @@ class VoiceAssistantPlugin @Inject constructor(
     private var keyWordViolations = ""
     private var calculateReplacements = ""
     private var cancelReplacements = ""
-    private var parameters = ""
-    private var keywordArray: Array<String> = arrayOf("carb", "bolus", "profile", "switch", "calculate", "gram", "minute", "hour", "unit", "glucose", "iob", "insulin", "cob", "trend", "basal", "bolus", "delta", "target", "status", "summary", "yes", "cancel", "automation")
+    private var keywordArray: Array<String> = arrayOf("carb", "bolus", "profile", "switch", "calculate", "gram", "minute", "hour", "unit", "glucose", "iob", "insulin", "cob", "trend", "basal", "bolus", "delta", "target", "status", "summary", "confirm", "cancel", "automation")
     lateinit var spokenCommandArray: Array<String>
     var messages = ArrayList<String>()
-
-//    private val startForResult = overviewFragment.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result: ActivityResult ->
-//        if (result.resultCode == Activity.RESULT_OK) { aapsLogger.debug(LTag.VOICECOMMAND, result.data.toString()) ; result.data?.let { processCommand(it) } } }
-//    private val confirmCarbResult = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result: ActivityResult ->
-//        if (result.resultCode == Activity.RESULT_OK) { aapsLogger.debug(LTag.VOICECOMMAND, result.data.toString()) ; result.data?.let { processCarbs(it) } } }
 
     override fun onStart() {
         processSettings(null)
@@ -135,6 +130,8 @@ class VoiceAssistantPlugin @Inject constructor(
 
     override fun onStop() {
         disposable.clear()
+        speechRecognizer.stopListening()
+        speechRecognizer.destroy()
         super.onStop()
     }
 
@@ -176,17 +173,6 @@ class VoiceAssistantPlugin @Inject constructor(
             return
         }
 
-        parameters = intent.getStringExtra("parameters") ?: ""
-        if (parameters != "") {
-            aapsLogger.debug(LTag.VOICECOMMAND, "Parameters are: " + parameters)
-            if (parameters.contains("carbconfirm", true)) { processCarbs(intent); return }
-            if (parameters.contains("bolusconfirm", true)) { processBolus(intent); return }
-            if (parameters.contains("profileswitchconfirm", true)) { processProfileSwitch(intent); return }
-            if (parameters.contains("automationconfirm", true)) { processAutomation(intent); return }
-        } else {
-            aapsLogger.debug(LTag.VOICECOMMAND, "No parameters received.")
-        }
-
         val receivedCommand: String? = intent.getStringExtra("query")
         if (receivedCommand != null) {
 
@@ -196,11 +182,33 @@ class VoiceAssistantPlugin @Inject constructor(
 
             cleanedCommand = processReplacements(receivedCommand)
 
-            if (cleanedCommand.contains("cancel", true)) return
-            //any negative command coming through should stop further processing.
+            if (cleanedCommand.contains("cancel", true)) { //any negative command coming through should stop further processing.
+                userFeedback("Aborting.")
+                return
+            }
+            //TODO manage this in consideration of "temp target cancel".
 
+            if (cleanedCommand.contains("confirm", true)) {
+                val parameters = intent.getStringExtra("parameters") ?: ""
+                if (parameters != "") {
+                    aapsLogger.debug(LTag.VOICECOMMAND, "Parameters are: " + parameters)
+                    if (parameters.contains("carbconfirm", true)) {
+                        processCarbs(intent); return
+                    }
+                    if (parameters.contains("bolusconfirm", true)) {
+                        processBolus(intent); return
+                    }
+                    if (parameters.contains("profileswitchconfirm", true)) {
+                        processProfileSwitch(intent); return
+                    }
+                    if (parameters.contains("automationconfirm", true)) {
+                        processAutomation(intent); return
+                    }
+                } else {
+                    aapsLogger.debug(LTag.VOICECOMMAND, "No parameters received.")
+                }
+            }
             spokenCommandArray = cleanedCommand.split(Regex("\\s+")).toTypedArray()
-
         } else {
             userFeedback("I did not receive the command. Try again.", false)
             return
@@ -360,8 +368,8 @@ class VoiceAssistantPlugin @Inject constructor(
         if (constraintsOk(amount, "carb")) {
             var replyText = "To confirm adding " + amount + " grams of carb"
             if (requireIdentifier as Boolean && patientName != "") replyText += " for " + patientName
-            replyText += ", say Yes."
-            parameters = "carbconfirm;" + amount + ";" + patientName
+            replyText += ", say I confirm."
+            val parameters = "carbconfirm;" + amount + ";" + patientName
             userFeedback(replyText, true, parameters)
 
         }
@@ -369,7 +377,9 @@ class VoiceAssistantPlugin @Inject constructor(
 
     fun processCarbs(intent: Intent) {
 
-        if (parameters != "") {
+        val parameters = intent.getStringExtra("parameters")
+        if (parameters == null) userFeedback("Something went wrong with the request. Try again.")
+        else {
             val splitted = parameters.split(Regex(";")).toTypedArray()
 
             val amount = splitted[1]
@@ -455,9 +465,8 @@ class VoiceAssistantPlugin @Inject constructor(
         var replyText = "To confirm profile switch to " + profileName + " at " + percentage + " percent,"
         if (duration != 0) replyText += "for " + duration.toString() + " minutes,"
         if (requireIdentifier as Boolean && patientName != "") replyText += " for " + patientName + ", "
-        replyText += "say Yes."
-        val counter: Long = DateUtil.now() / 30000L
-        val parameters = "profileswitchconfirm;" + totp.generateOneTimePassword(counter) + ";" + pindex + ";" + percentage + ";" + duration.toString() + ";" + patientName
+        replyText += "say I confirm."
+        val parameters = "profileswitchconfirm;" + pindex + ";" + percentage + ";" + duration.toString() + ";" + patientName
 
         userFeedback(replyText, true, parameters)
     }
@@ -467,15 +476,9 @@ class VoiceAssistantPlugin @Inject constructor(
         if (parameters != null) {
             val splitted = parameters.split(Regex(";")).toTypedArray()
 
-            if (!(totp.checkOTP(splitted[1] + pin) == OneTimePasswordValidationResult.OK)) {
-                userFeedback("Something went wrong with confirming your request. Try again.")
-                aapsLogger.debug(LTag.VOICECOMMAND, "OTP check failed for OTP: " + splitted[1])
-                return
-            }
-
-            val pindex = SafeParse.stringToInt(splitted[2])
-            val percentage = SafeParse.stringToInt(splitted[3])
-            val duration = SafeParse.stringToInt(splitted[4])
+            val pindex = SafeParse.stringToInt(splitted[1])
+            val percentage = SafeParse.stringToInt(splitted[2])
+            val duration = SafeParse.stringToInt(splitted[3])
             aapsLogger.debug(LTag.VOICECOMMAND, "Received profile switch command for profile " + pindex + ", " + percentage + "%, " + duration + " minutes.")
 
             val anInterface = activePlugin.activeProfileInterface
@@ -507,9 +510,8 @@ class VoiceAssistantPlugin @Inject constructor(
             var replyText = "To confirm delivery of " + insulinAmount + " units of insulin"
             if (carbAmount != "0") replyText += " and " + carbAmount + " grams of carb"
             if (requireIdentifier as Boolean && patientName != "") replyText += " for " + patientName
-            replyText += ", say Yes."
-            val counter: Long = DateUtil.now() / 30000L
-            val parameters = "bolusconfirm;" + totp.generateOneTimePassword(counter) + ";" + insulinAmount.toString() + ";" + carbAmount.toString()+ ";" + meal.toString()
+            replyText += ", say I confirm."
+            val parameters = "bolusconfirm;" + insulinAmount + ";" + carbAmount + ";" + meal.toString()
             userFeedback(replyText, true, parameters)
         }
     }
@@ -520,18 +522,12 @@ class VoiceAssistantPlugin @Inject constructor(
         if (parameters != null) {
             val splitted = parameters.split(Regex(";")).toTypedArray()
 
-            if (!(totp.checkOTP(splitted[1] + pin) == OneTimePasswordValidationResult.OK)) {
-                userFeedback("Something went wrong with confirming your request. Try again.")
-                aapsLogger.debug(LTag.VOICECOMMAND, "OTP check failed for OTP: " + splitted[1])
-                return
-            }
-
-            val insulinAmount = splitted[2]
-            val carbAmount = splitted[3]
+            val insulinAmount = splitted[1]
+            val carbAmount = splitted[2]
 
             if (constraintsOk(insulinAmount, "bolus") && constraintsOk(carbAmount, "carb", false)) {
 
-                val isMeal = splitted[4].toBoolean()
+                val isMeal = splitted[3].toBoolean()
                 val detailedBolusInfo = DetailedBolusInfo()
                 detailedBolusInfo.insulin = insulinAmount.toDouble()
                 detailedBolusInfo.carbs = carbAmount.toDouble()
@@ -649,8 +645,7 @@ class VoiceAssistantPlugin @Inject constructor(
                 userFeedback("The bolus wizard did not return a result."); return
             }
 
-            val counter: Long = DateUtil.now() / 30000L
-            val parameters = "bolusconfirm;" + totp.generateOneTimePassword(counter) + ";" + bolusWizard.calculatedTotalInsulin.toString() + ";" + carbAmount + ";" + meal
+            val parameters = "bolusconfirm;" + bolusWizard.calculatedTotalInsulin.toString() + ";" + carbAmount + ";" + meal
             userFeedback(replyText, true, parameters)
         }
     }
@@ -839,7 +834,6 @@ class VoiceAssistantPlugin @Inject constructor(
     }
 
     private fun returnLastBolus(): String {
-        //treatmentsPlugin.getLastBolusTime(true)
         var output = ""
         val last: Treatment? = treatmentsPlugin.getService().getLastBolus(true)
         if (last != null) {
@@ -879,13 +873,11 @@ class VoiceAssistantPlugin @Inject constructor(
         messages.add(dateUtil.timeStringWithSeconds(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + message + "</b><br>")
         aapsLogger.debug(LTag.VOICECOMMAND, message)
 
-        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-        val returnCode = speechUtil.say(message) //wait for the return code to give the system time to speak before kicking off listening below.
+        speechUtil.say(message)
+        runOnUiThread(Runnable { Toast.makeText(context, message, Toast.LENGTH_LONG).show() })
 
         if (needsResponse) {
-            if (_parameters.contains("carbconfirm", true)) voiceResultActivity.confirmCarbs(message)
-            // else if
-            // else
+            if (_parameters != "") listen(message, _parameters)
         }
     }
 
@@ -1030,5 +1022,53 @@ class VoiceAssistantPlugin @Inject constructor(
             return false
         }
         return true
+    }
+
+    fun listen(message: String, parameters: String? = null) {
+
+        val returnIntent = Intent()
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, message)
+        speechRecognizer.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(bundle: Bundle) {
+                aapsLogger.debug(LTag.VOICECOMMAND, "Started listening.")
+                runOnUiThread(Runnable {Toast.makeText(context, "Listening ...", Toast.LENGTH_SHORT).show() } )
+                //show the dialog
+                //messageTextView.text = message
+            }
+
+            override fun onBeginningOfSpeech() {}
+            override fun onRmsChanged(v: Float) {}
+            override fun onBufferReceived(bytes: ByteArray) {}
+            override fun onEndOfSpeech() {
+                //close dialog
+            }
+
+            override fun onError(i: Int) {
+                //close dialog
+                aapsLogger.debug(LTag.VOICECOMMAND, "Listening error.")
+            }
+
+            override fun onResults(bundle: Bundle) {
+                aapsLogger.debug(LTag.VOICECOMMAND, "Received listening results.")
+                val data: ArrayList<String>? = bundle.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                runOnUiThread {Toast.makeText(context, data?.get(0), Toast.LENGTH_SHORT).show() }
+                returnIntent.putExtra("query", data?.get(0))
+                if (parameters != null) returnIntent.putExtra("parameters", parameters)
+                //close dialog
+                processCommand(returnIntent)
+            }
+
+            override fun onPartialResults(bundle: Bundle) {
+                //val data: ArrayList<String>? = bundle.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                //runOnUiThread { Toast.makeText(context, data?.get(0), Toast.LENGTH_SHORT).show() }
+            }
+
+            override fun onEvent(i: Int, bundle: Bundle) {}
+        })
+        speechRecognizer.startListening(intent)
+
     }
 }

@@ -126,6 +126,14 @@ class AndroidPermission @Inject constructor(
         } else rxBus.send(EventDismissNotification(Notification.PERMISSION_LOCATION))
     }
 
+    @Synchronized fun notifyForVoicePermissions(activity: FragmentActivity) {
+        if (permissionNotGranted(activity, Manifest.permission.RECORD_AUDIO)) {
+            val notification = NotificationWithAction(injector, Notification.PERMISSION_RECORD_AUDIO, resourceHelper.gs(R.string.needvoicepermission), Notification.URGENT)
+            notification.action(R.string.request) { askForPermission(activity, arrayOf(Manifest.permission.RECORD_AUDIO)) }
+            rxBus.send(EventNewNotification(notification))
+        } else rxBus.send(EventDismissNotification(Notification.PERMISSION_RECORD_AUDIO))
+    }
+
     @Synchronized fun notifyForSystemWindowPermissions(activity: FragmentActivity) {
         // Check if Android Q or higher
         if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {

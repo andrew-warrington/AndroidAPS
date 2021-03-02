@@ -1,8 +1,6 @@
 package info.nightscout.androidaps.plugins.general.overview
 
 import android.annotation.SuppressLint
-import android.app.Activity
-import android.app.Instrumentation
 import android.app.NotificationManager
 import android.content.ActivityNotFoundException
 import android.content.Context
@@ -12,7 +10,6 @@ import android.graphics.Paint
 import android.graphics.drawable.AnimationDrawable
 import android.os.Bundle
 import android.os.Handler
-import android.speech.RecognizerIntent
 import android.util.DisplayMetrics
 import android.view.LayoutInflater
 import android.view.View
@@ -21,8 +18,6 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.TextView
-import androidx.activity.result.ActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.text.toSpanned
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -58,7 +53,6 @@ import info.nightscout.androidaps.plugins.source.DexcomPlugin
 import info.nightscout.androidaps.plugins.source.XdripPlugin
 import info.nightscout.androidaps.plugins.treatments.TreatmentsPlugin
 import info.nightscout.androidaps.queue.CommandQueue
-import info.nightscout.androidaps.services.Intents
 import info.nightscout.androidaps.skins.SkinProvider
 import info.nightscout.androidaps.utils.*
 import info.nightscout.androidaps.utils.alertDialogs.OKDialog
@@ -139,9 +133,6 @@ class OverviewFragment : DaggerFragment(), View.OnClickListener, OnLongClickList
     private var carbAnimation: AnimationDrawable? = null
 
     private val graphLock = Object()
-
-    val startForResult = registerForActivityResult(ActivityResultContracts.StartActivityForResult())
-    { result: ActivityResult -> if (result.resultCode == Activity.RESULT_OK) { result.data?.let { voiceAssistantPlugin.processCommand(it) } } }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?,
                               savedInstanceState: Bundle?): View? {
@@ -411,13 +402,8 @@ class OverviewFragment : DaggerFragment(), View.OnClickListener, OnLongClickList
 
     private fun onClickVoiceButton() {
         aapsLogger.debug(LTag.VOICECOMMAND, "Voice button clicked!")
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, resourceHelper.gs(R.string.voicecommand_speakprompt))
-        startForResult.launch(intent)
+        voiceAssistantPlugin.listen(resourceHelper.gs(R.string.voicecommand_speakprompt), null)
     }
-
 
     private fun onClickQuickWizard() {
         val actualBg = iobCobCalculatorPlugin.actualBg()
