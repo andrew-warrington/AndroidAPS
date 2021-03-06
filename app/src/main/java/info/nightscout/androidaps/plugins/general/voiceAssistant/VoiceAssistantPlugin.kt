@@ -17,23 +17,24 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 //TODO implement temp targets
 //TODO when voice disabled in config builder icon should disappear
 //TODO bolus wizard always mentions carb if COB < 0
-//TODO clean up mess in SpeechUtil or just copy the function here.
-//TODO get "listen" to wait for "say" to complete
-//TODO create a dialog box for recognition
+//TODO create a dialog box for recognition instead of Toast
 //TODO prefer local?
 //TODO hotword (Android 11+)
 //TODO permissions only requested when needed, i.e. when VoiceAssistant is set to on.
-//TODO Bolus 1.40 units delivered successfully <- remove the trailing 0
 //TODO Bolus wizard asks to say I confirm
-//TODO Profile switch executes on I confirm ?
-//TODO Bolus wizard does not listen after a "carbs needed"
+//TODO Check whether bolus wizard works without Wear activated
+//TODO add InstallTTSData into setting screen.
 
+//import info.nightscout.androidaps.utils.SpeechUtil
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.widget.Toast
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
@@ -60,7 +61,6 @@ import info.nightscout.androidaps.utils.DateUtil
 import info.nightscout.androidaps.utils.DecimalFormatter
 import info.nightscout.androidaps.utils.FabricPrivacy
 import info.nightscout.androidaps.utils.SafeParse
-import info.nightscout.androidaps.utils.SpeechUtil
 import info.nightscout.androidaps.utils.extensions.plusAssign
 import info.nightscout.androidaps.utils.extensions.runOnUiThread
 import info.nightscout.androidaps.utils.resources.ResourceHelper
@@ -88,7 +88,7 @@ class VoiceAssistantPlugin @Inject constructor(
     private val dateUtil: DateUtil,
     private val rxBus: RxBusWrapper,
     private val fabricPrivacy: FabricPrivacy,
-    private val speechUtil: SpeechUtil,
+//    private val speechUtil: SpeechUtil,
 ) : PluginBase(PluginDescription()
     .mainType(PluginType.GENERAL)
     .fragmentClass(VoiceAssistantFragment::class.java.name)
@@ -116,7 +116,9 @@ class VoiceAssistantPlugin @Inject constructor(
     private var calculateReplacements = ""
     private var cancelReplacements = ""
     private var keywordArray: Array<String> = arrayOf("carb", "bolus", "profile", "switch", "calculate", "gram", "minute", "hour", "unit", "glucose", "iob", "insulin", "cob", "trend", "basal", "bolus", "delta", "target", "status", "summary", "confirm", "cancel", "automation")
+    lateinit var tts: TextToSpeech
     lateinit var spokenCommandArray: Array<String>
+    var map = HashMap<String, String>()
     var messages = ArrayList<String>()
 
     override fun onStart() {
@@ -628,6 +630,8 @@ class VoiceAssistantPlugin @Inject constructor(
                 replyText += "Bolus wizard calculates that " + DecimalFormatter.to0Decimal(bolusWizard.carbsEquivalent).toString()
                 if (carbAmountD > 0) replyText += " more"
                 replyText += " grams of carb are required."
+                userFeedback(replyText)
+                return
             }
 
             var supplementalText = ""
@@ -642,7 +646,8 @@ class VoiceAssistantPlugin @Inject constructor(
             if (supplementalText != "") replyText = replyText + " Would you like to " + supplementalText + "?"
 
             if (replyText == "") {
-                userFeedback("The bolus wizard did not return a result."); return
+                userFeedback("The bolus wizard did not return a result.")
+                return
             }
 
             val parameters = "bolusconfirm;" + bolusWizard.calculatedTotalInsulin.toString() + ";" + carbAmount + ";" + meal
@@ -872,13 +877,7 @@ class VoiceAssistantPlugin @Inject constructor(
 
         messages.add(dateUtil.timeStringWithSeconds(DateUtil.now()) + " &lt;&lt;&lt; " + "░ " + message + "</b><br>")
         aapsLogger.debug(LTag.VOICECOMMAND, message)
-
-        speechUtil.say(message)
-        runOnUiThread(Runnable { Toast.makeText(context, message, Toast.LENGTH_LONG).show() })
-
-        if (needsResponse) {
-            if (_parameters != "") listen(message, _parameters)
-        }
+        say(message, needsResponse, _parameters)
     }
 
     private fun processReplacements(string: String): String {
@@ -1034,7 +1033,7 @@ class VoiceAssistantPlugin @Inject constructor(
         speechRecognizer.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(bundle: Bundle) {
                 aapsLogger.debug(LTag.VOICECOMMAND, "Started listening.")
-                runOnUiThread(Runnable {Toast.makeText(context, "Listening ...", Toast.LENGTH_SHORT).show() } )
+                runOnUiThread(Runnable { Toast.makeText(context, "Listening ...", Toast.LENGTH_SHORT).show() })
                 //show the dialog
                 //messageTextView.text = message
             }
@@ -1054,7 +1053,7 @@ class VoiceAssistantPlugin @Inject constructor(
             override fun onResults(bundle: Bundle) {
                 aapsLogger.debug(LTag.VOICECOMMAND, "Received listening results.")
                 val data: ArrayList<String>? = bundle.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                runOnUiThread {Toast.makeText(context, data?.get(0), Toast.LENGTH_SHORT).show() }
+                runOnUiThread { Toast.makeText(context, data?.get(0), Toast.LENGTH_SHORT).show() }
                 returnIntent.putExtra("query", data?.get(0))
                 if (parameters != null) returnIntent.putExtra("parameters", parameters)
                 //close dialog
@@ -1071,4 +1070,134 @@ class VoiceAssistantPlugin @Inject constructor(
         speechRecognizer.startListening(intent)
 
     }
+
+    @Synchronized
+    fun say(message: String, needsResponse: Boolean, _parameters: String, delay: Long = 0, retry: Int = 0): Int {
+
+        var result = 0
+        Thread(Runnable {
+            try {
+                initialize(message, needsResponse, _parameters)
+                try {
+                    Thread.sleep(delay)
+                } catch (ee: InterruptedException) {
+                }
+                try {
+                    map.put(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, DateUtil.now().toString());
+                    result = tts.speak(message, TextToSpeech.QUEUE_ADD, map)
+                } catch (e: NullPointerException) {
+                    result = TextToSpeech.ERROR
+                    aapsLogger.debug(LTag.VOICECOMMAND, "Got null pointer trying to speak! concurrency issue")
+                }
+                aapsLogger.debug(LTag.VOICECOMMAND, "Speak result: $result")
+
+                // speech randomly fails, usually due to the service not being bound so quick after being initialized, so we wait and retry recursively
+                if (result != TextToSpeech.SUCCESS && retry < 5) {
+                    aapsLogger.debug(LTag.VOICECOMMAND, "Failed to speak: retrying in 1s: $retry")
+                    say(message, needsResponse, _parameters, delay + 1000, retry + 1)
+                    return@Runnable
+                }
+                // only get here if retries exceeded
+                if (result != TextToSpeech.SUCCESS) {
+                    aapsLogger.debug(LTag.VOICECOMMAND, "Failed to speak after: $retry retries.")
+                } else {
+                    aapsLogger.debug(LTag.VOICECOMMAND, "Successfully spoke: $message")
+                }
+            } finally {
+                // nada
+            }
+        }).start()
+        aapsLogger.debug(LTag.VOICECOMMAND, "Speak result: $result")
+
+        if (result != TextToSpeech.SUCCESS) {
+            aapsLogger.debug(LTag.VOICECOMMAND, "Failed to speak after: $retry retries.")
+        } else {
+            aapsLogger.debug(LTag.VOICECOMMAND, "Successfully spoke: " + message)
+        }
+
+        aapsLogger.debug(LTag.VOICECOMMAND, result.toString())
+        return result
+    }
+
+    @Synchronized private fun initialize(message: String = "", needsResponse: Boolean, __parameters: String) {
+        tts = TextToSpeech(context) { status: Int ->
+            if (status == TextToSpeech.SUCCESS) {
+                val speech_locale = Locale.getDefault()
+                aapsLogger.debug(LTag.VOICECOMMAND, "Chosen locale: $speech_locale")
+                var set_language_result: Int = try {
+                    tts.setLanguage(speech_locale)
+                } catch (e: IllegalArgumentException) {
+                    // can end up here with Locales like "OS"
+                    aapsLogger.debug(LTag.VOICECOMMAND, "Got TTS set language error: $e")
+                    TextToSpeech.LANG_MISSING_DATA
+                } catch (e: Exception) {
+                    // can end up here with deep errors from tts system
+                    aapsLogger.debug(LTag.VOICECOMMAND, "Got TTS set language deep error: $e")
+                    TextToSpeech.LANG_MISSING_DATA
+                }
+
+                // try various fallbacks
+                if (set_language_result == TextToSpeech.LANG_MISSING_DATA || set_language_result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    aapsLogger.debug(LTag.VOICECOMMAND, "Default system language is not supported")
+                    set_language_result = try {
+                        tts.setLanguage(Locale.ENGLISH)
+                    } catch (e: IllegalArgumentException) {
+                        // can end up here with parcel Locales like "OS"
+                        aapsLogger.debug(LTag.VOICECOMMAND, "Got TTS set default language error: $e")
+                        TextToSpeech.LANG_MISSING_DATA
+                    } catch (e: Exception) {
+                        // can end up here with deep errors from tts system
+                        aapsLogger.debug(LTag.VOICECOMMAND, "Got TTS set default language deep error: $e")
+                        TextToSpeech.LANG_MISSING_DATA
+                    }
+                }
+                //try any english as last resort
+                if (set_language_result == TextToSpeech.LANG_MISSING_DATA || set_language_result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    aapsLogger.debug(LTag.VOICECOMMAND, "Not even English is supported. Cannot proceed.")
+                }
+            } else {
+                aapsLogger.debug(LTag.VOICECOMMAND, "Initialize status code indicates failure, code: $status")
+            }
+
+            tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                override fun onStart(utteranceId: String) {
+                    aapsLogger.debug(LTag.VOICECOMMAND, "Speaking: " + message)
+                }
+
+                override fun onDone(utteranceId: String) {
+                    aapsLogger.debug(LTag.VOICECOMMAND, "Finished speaking: " + message)
+                    aapsLogger.debug(LTag.VOICECOMMAND, "Needs response: " + needsResponse)
+                    aapsLogger.debug(LTag.VOICECOMMAND, "Parameters: " + __parameters)
+                    if (needsResponse) {
+                        runOnUiThread {if (__parameters != "") listen(message, __parameters)}
+                    }
+                }
+
+                override fun onError(utteranceId: String) {
+                    aapsLogger.debug(LTag.VOICECOMMAND, "Error when speaking: " + message)
+                }
+            })
+        }
+    }
+
+    fun installTTSData(context: Context) {
+        try {
+            val intent = Intent()
+            intent.action = TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            aapsLogger.debug(LTag.VOICECOMMAND, "Could not install Text to Speech data: $e")
+        }
+    }
+
+    // shutdown existing instance - useful when changing language or parameters
+    @Synchronized fun shutdown() {
+        try {
+            tts.shutdown()
+        } catch (e: IllegalArgumentException) {
+            aapsLogger.debug(LTag.VOICECOMMAND, "Got exception shutting down service: $e")
+        }
+    }
+
 }
