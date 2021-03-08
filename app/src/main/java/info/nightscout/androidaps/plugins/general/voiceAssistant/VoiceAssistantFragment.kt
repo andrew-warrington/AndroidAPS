@@ -61,4 +61,5 @@ class VoiceAssistantFragment : DaggerFragment() {
             }
             voiceassistant_log?.text = HtmlHelper.fromHtml(logText)
         }
+
 }

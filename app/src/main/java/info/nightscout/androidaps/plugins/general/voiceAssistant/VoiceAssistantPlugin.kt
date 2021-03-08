@@ -9,23 +9,20 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 //TODO get text validation to ensure only alpha + ; in the prefs screen for word replacements
 //TODO get word replacements prefs screen to automatically update after automatic removal of "illegal" words
 //TODO word replacements: No duplicates
+//TODO move word replacements to fragment
 //TODO create word replacements capability for all keywords
 //TODO automation
-//TODO check for device security and device is unlocked
-//TODO implement bolus password?
-//TODO move word replacements to fragment
 //TODO implement temp targets
 //TODO when voice disabled in config builder icon should disappear
-//TODO bolus wizard always mentions carb if COB < 0
 //TODO create a dialog box for recognition instead of Toast
-//TODO prefer local?
 //TODO hotword (Android 11+)
 //TODO permissions only requested when needed, i.e. when VoiceAssistant is set to on.
-//TODO Bolus wizard asks to say I confirm
 //TODO Check whether bolus wizard works without Wear activated
 //TODO add InstallTTSData into setting screen.
+//TODO revert safetyplugin
+//TODO replace "I confirm" with a random 3-digit number
 
-//import info.nightscout.androidaps.utils.SpeechUtil
+import android.app.KeyguardManager
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -87,8 +84,7 @@ class VoiceAssistantPlugin @Inject constructor(
     private val treatmentsPlugin: TreatmentsPlugin,
     private val dateUtil: DateUtil,
     private val rxBus: RxBusWrapper,
-    private val fabricPrivacy: FabricPrivacy,
-//    private val speechUtil: SpeechUtil,
+    private val fabricPrivacy: FabricPrivacy
 ) : PluginBase(PluginDescription()
     .mainType(PluginType.GENERAL)
     .fragmentClass(VoiceAssistantFragment::class.java.name)
@@ -115,7 +111,7 @@ class VoiceAssistantPlugin @Inject constructor(
     private var keyWordViolations = ""
     private var calculateReplacements = ""
     private var cancelReplacements = ""
-    private var keywordArray: Array<String> = arrayOf("carb", "bolus", "profile", "switch", "calculate", "gram", "minute", "hour", "unit", "glucose", "iob", "insulin", "cob", "trend", "basal", "bolus", "delta", "target", "status", "summary", "confirm", "cancel", "automation")
+    private var keywordArray: Array<String> = arrayOf("carb", "bolus", "profile", "switch", "calculate", "gram", "minute", "hour", "unit", "glucose", "iob", "insulin", "cob", "trend", "basal", "bolus", "delta", "target", "status", "summary", "cancel", "automation")
     lateinit var tts: TextToSpeech
     lateinit var spokenCommandArray: Array<String>
     var map = HashMap<String, String>()
@@ -175,6 +171,16 @@ class VoiceAssistantPlugin @Inject constructor(
             return
         }
 
+        if (!(context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isDeviceSecure) {
+            userFeedback("Your device must be secured with a PIN, pattern, or password in order to use the voice assistant. You can set these up in your device settings.")
+            return
+        }
+
+        if ((context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isDeviceLocked) {
+            userFeedback("Please unlock your device and try again.")
+            return
+        }
+
         val receivedCommand: String? = intent.getStringExtra("query")
         if (receivedCommand != null) {
 
@@ -185,14 +191,19 @@ class VoiceAssistantPlugin @Inject constructor(
             cleanedCommand = processReplacements(receivedCommand)
 
             if (cleanedCommand.contains("cancel", true)) { //any negative command coming through should stop further processing.
-                userFeedback("Aborting.")
+                userFeedback("Cancelling.")
                 return
             }
             //TODO manage this in consideration of "temp target cancel".
 
-            if (cleanedCommand.contains("confirm", true)) {
-                val parameters = intent.getStringExtra("parameters") ?: ""
-                if (parameters != "") {
+
+            val parameters = intent.getStringExtra("parameters") ?: ""
+            if (parameters != "") {   //then this is a confirmed command.
+
+                // Check next: Did we get a confirmation code?
+                val parametersArray = parameters.split(Regex(";")).toTypedArray()
+                if (cleanedCommand.contains(parametersArray[1], true)) {
+
                     aapsLogger.debug(LTag.VOICECOMMAND, "Parameters are: " + parameters)
                     if (parameters.contains("carbconfirm", true)) {
                         processCarbs(intent); return
@@ -206,9 +217,9 @@ class VoiceAssistantPlugin @Inject constructor(
                     if (parameters.contains("automationconfirm", true)) {
                         processAutomation(intent); return
                     }
-                } else {
-                    aapsLogger.debug(LTag.VOICECOMMAND, "No parameters received.")
                 }
+            } else {
+                aapsLogger.debug(LTag.VOICECOMMAND, "No parameters received, therefore identifying request type.")
             }
             spokenCommandArray = cleanedCommand.split(Regex("\\s+")).toTypedArray()
         } else {
@@ -238,7 +249,8 @@ class VoiceAssistantPlugin @Inject constructor(
         else if (command.contains("bolus", true) && command.contains("[0-9]\\sgram".toRegex(RegexOption.IGNORE_CASE))) { requestBolusWizard() ; return }
         else if (command.contains("bolus", true) && command.contains("[0-9]\\sunit".toRegex(RegexOption.IGNORE_CASE))) { requestBolus() ; return }
         else if (command.contains("insulin", true) && command.contains("[0-9]\\sunit".toRegex(RegexOption.IGNORE_CASE))) { requestBolus() ; return }
-        else if (command.contains("carb", true) && command.contains("[0-9]\\sgram".toRegex(RegexOption.IGNORE_CASE))) { requestCarbs() ; return }
+        else if (command.contains("carb", true) && (command.contains("[0-9]\\sgram".toRegex(RegexOption.IGNORE_CASE)) || command.contains("[0-9]\\scarb".toRegex(RegexOption.IGNORE_CASE)))) { requestCarbs() ; return }
+        //else if (command.contains("carb", true) && command.contains("[0-9]\\scarb".toRegex(RegexOption.IGNORE_CASE))) { requestCarbs() ; return }
         else if (command.contains("basal", true) && command.contains("[0-9]\\sunit".toRegex(RegexOption.IGNORE_CASE))) { requestBasal() ; return }
         else if (command.contains("target", true) &&
             ((command.contains("[0-9]\\smmol".toRegex(RegexOption.IGNORE_CASE)) ||
@@ -368,10 +380,11 @@ class VoiceAssistantPlugin @Inject constructor(
             if (spokenCommandArray[x].contains("gram", true)) amount = spokenCommandArray[x - 1]
         }
         if (constraintsOk(amount, "carb")) {
+            val confCode = generateConfirmationCode()
             var replyText = "To confirm adding " + amount + " grams of carb"
             if (requireIdentifier as Boolean && patientName != "") replyText += " for " + patientName
-            replyText += ", say I confirm."
-            val parameters = "carbconfirm;" + amount + ";" + patientName
+            replyText += ", say " + confCode + "."
+            val parameters = "carbconfirm;" + confCode + ";" + amount + ";" + patientName
             userFeedback(replyText, true, parameters)
 
         }
@@ -384,7 +397,7 @@ class VoiceAssistantPlugin @Inject constructor(
         else {
             val splitted = parameters.split(Regex(";")).toTypedArray()
 
-            val amount = splitted[1]
+            val amount = splitted[2]
             if (constraintsOk(amount, "carb")) {
 
                 aapsLogger.debug(LTag.VOICECOMMAND, String.format(resourceHelper.gs(R.string.voiceassistant_carbslog), amount))
@@ -464,11 +477,12 @@ class VoiceAssistantPlugin @Inject constructor(
 
         val duration = SafeParse.stringToInt(durationMin) + (SafeParse.stringToInt(durationHour) * 60)
 
+        val confCode = generateConfirmationCode()
         var replyText = "To confirm profile switch to " + profileName + " at " + percentage + " percent,"
         if (duration != 0) replyText += "for " + duration.toString() + " minutes,"
         if (requireIdentifier as Boolean && patientName != "") replyText += " for " + patientName + ", "
-        replyText += "say I confirm."
-        val parameters = "profileswitchconfirm;" + pindex + ";" + percentage + ";" + duration.toString() + ";" + patientName
+        replyText += ", say " + confCode + "."
+        val parameters = "profileswitchconfirm;" + confCode + ";" + pindex + ";" + percentage + ";" + duration.toString() + ";" + patientName
 
         userFeedback(replyText, true, parameters)
     }
@@ -478,9 +492,9 @@ class VoiceAssistantPlugin @Inject constructor(
         if (parameters != null) {
             val splitted = parameters.split(Regex(";")).toTypedArray()
 
-            val pindex = SafeParse.stringToInt(splitted[1])
-            val percentage = SafeParse.stringToInt(splitted[2])
-            val duration = SafeParse.stringToInt(splitted[3])
+            val pindex = SafeParse.stringToInt(splitted[2])
+            val percentage = SafeParse.stringToInt(splitted[3])
+            val duration = SafeParse.stringToInt(splitted[4])
             aapsLogger.debug(LTag.VOICECOMMAND, "Received profile switch command for profile " + pindex + ", " + percentage + "%, " + duration + " minutes.")
 
             val anInterface = activePlugin.activeProfileInterface
@@ -509,11 +523,12 @@ class VoiceAssistantPlugin @Inject constructor(
             var meal = false
             if (cleanedCommand.contains("meal", true)) meal = true
 
+            val confCode = generateConfirmationCode()
             var replyText = "To confirm delivery of " + insulinAmount + " units of insulin"
             if (carbAmount != "0") replyText += " and " + carbAmount + " grams of carb"
             if (requireIdentifier as Boolean && patientName != "") replyText += " for " + patientName
-            replyText += ", say I confirm."
-            val parameters = "bolusconfirm;" + insulinAmount + ";" + carbAmount + ";" + meal.toString()
+            replyText += ", say " + confCode + "."
+            val parameters = "bolusconfirm;" + confCode + ";" + insulinAmount + ";" + carbAmount + ";" + meal.toString()
             userFeedback(replyText, true, parameters)
         }
     }
@@ -524,12 +539,12 @@ class VoiceAssistantPlugin @Inject constructor(
         if (parameters != null) {
             val splitted = parameters.split(Regex(";")).toTypedArray()
 
-            val insulinAmount = splitted[1]
-            val carbAmount = splitted[2]
+            val insulinAmount = splitted[2]
+            val carbAmount = splitted[3]
 
             if (constraintsOk(insulinAmount, "bolus") && constraintsOk(carbAmount, "carb", false)) {
 
-                val isMeal = splitted[3].toBoolean()
+                val isMeal = splitted[4].toBoolean()
                 val detailedBolusInfo = DetailedBolusInfo()
                 detailedBolusInfo.insulin = insulinAmount.toDouble()
                 detailedBolusInfo.carbs = carbAmount.toDouble()
@@ -621,11 +636,14 @@ class VoiceAssistantPlugin @Inject constructor(
                 SafeParse.stringToInt(carbAmount), cobInfo.displayCob, bgReading.valueToUnits(profileFunction.getUnits()),
                 0.0, percentage.toDouble(), useBG, useCOB, useBolusIOB, useBasalIOB, false, useTT, useTrend, false)
 
+            val confCode = generateConfirmationCode()
             var replyText = ""
             val carbAmountD = SafeParse.stringToDouble(carbAmount)
             if (bolusWizard.calculatedTotalInsulin > 0.0) {
                 replyText += "Bolus wizard calculates " + bolusWizard.calculatedTotalInsulin.toString() + " units of insulin for glucose " + bgReading.valueToUnitsToString(units) + " " + units
-                replyText += if (carbAmountD > 0.0) " and " + carbAmount + " grams of carb." else "."
+                replyText += if (carbAmountD > 0.0) " and " + carbAmount + " grams of carb" else ""
+                replyText += if (cobInfo.displayCob > 0) ", with " + cobInfo.displayCob.toString() + " grams of carb on board" else ""
+                replyText += "."
             } else if (bolusWizard.carbsEquivalent.toInt() > 0) {
                 replyText += "Bolus wizard calculates that " + DecimalFormatter.to0Decimal(bolusWizard.carbsEquivalent).toString()
                 if (carbAmountD > 0) replyText += " more"
@@ -643,14 +661,16 @@ class VoiceAssistantPlugin @Inject constructor(
                 if (requireIdentifier as Boolean && patientName != "") supplementalText += ", for " + patientName
             }
 
-            if (supplementalText != "") replyText = replyText + " Would you like to " + supplementalText + "?"
+            if (supplementalText != "") replyText += " Would you like to " + supplementalText + "?"
+
+            replyText = replyText + " Say " + confCode + "."
 
             if (replyText == "") {
                 userFeedback("The bolus wizard did not return a result.")
                 return
             }
 
-            val parameters = "bolusconfirm;" + bolusWizard.calculatedTotalInsulin.toString() + ";" + carbAmount + ";" + meal
+            val parameters = "bolusconfirm;" + confCode + ";" + bolusWizard.calculatedTotalInsulin.toString() + ";" + carbAmount + ";" + meal
             userFeedback(replyText, true, parameters)
         }
     }
@@ -1063,6 +1083,7 @@ class VoiceAssistantPlugin @Inject constructor(
             override fun onPartialResults(bundle: Bundle) {
                 //val data: ArrayList<String>? = bundle.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 //runOnUiThread { Toast.makeText(context, data?.get(0), Toast.LENGTH_SHORT).show() }
+                //update dialogbox
             }
 
             override fun onEvent(i: Int, bundle: Bundle) {}
@@ -1087,9 +1108,8 @@ class VoiceAssistantPlugin @Inject constructor(
                     result = tts.speak(message, TextToSpeech.QUEUE_ADD, map)
                 } catch (e: NullPointerException) {
                     result = TextToSpeech.ERROR
-                    aapsLogger.debug(LTag.VOICECOMMAND, "Got null pointer trying to speak! concurrency issue")
+                    aapsLogger.debug(LTag.VOICECOMMAND, "Got null pointer trying to speak. concurrency issue")
                 }
-                aapsLogger.debug(LTag.VOICECOMMAND, "Speak result: $result")
 
                 // speech randomly fails, usually due to the service not being bound so quick after being initialized, so we wait and retry recursively
                 if (result != TextToSpeech.SUCCESS && retry < 5) {
@@ -1100,22 +1120,15 @@ class VoiceAssistantPlugin @Inject constructor(
                 // only get here if retries exceeded
                 if (result != TextToSpeech.SUCCESS) {
                     aapsLogger.debug(LTag.VOICECOMMAND, "Failed to speak after: $retry retries.")
-                } else {
-                    aapsLogger.debug(LTag.VOICECOMMAND, "Successfully spoke: $message")
                 }
             } finally {
                 // nada
             }
         }).start()
-        aapsLogger.debug(LTag.VOICECOMMAND, "Speak result: $result")
 
         if (result != TextToSpeech.SUCCESS) {
             aapsLogger.debug(LTag.VOICECOMMAND, "Failed to speak after: $retry retries.")
-        } else {
-            aapsLogger.debug(LTag.VOICECOMMAND, "Successfully spoke: " + message)
         }
-
-        aapsLogger.debug(LTag.VOICECOMMAND, result.toString())
         return result
     }
 
@@ -1153,7 +1166,7 @@ class VoiceAssistantPlugin @Inject constructor(
                 }
                 //try any english as last resort
                 if (set_language_result == TextToSpeech.LANG_MISSING_DATA || set_language_result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                    aapsLogger.debug(LTag.VOICECOMMAND, "Not even English is supported. Cannot proceed.")
+                    aapsLogger.debug(LTag.VOICECOMMAND, "Failed. Retrying up to 4 times.")
                 }
             } else {
                 aapsLogger.debug(LTag.VOICECOMMAND, "Initialize status code indicates failure, code: $status")
@@ -1200,4 +1213,9 @@ class VoiceAssistantPlugin @Inject constructor(
         }
     }
 
+    private fun generateConfirmationCode(): String {
+
+        val confirmationCode = Random().nextInt(899) + 100   //generate a pseudo-random number between 100 and 999
+        return confirmationCode.toString()
+    }
 }
