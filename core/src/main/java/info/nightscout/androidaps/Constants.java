@@ -1,5 +1,7 @@
 package info.nightscout.androidaps;
 
+import org.jetbrains.annotations.NotNull;
+
 import info.nightscout.androidaps.utils.T;
 
 /**
@@ -109,4 +111,7 @@ public class Constants {
      * so we add leeway to still accept given amount of older tokens
      */
     public static final int OTP_ACCEPT_OLD_TOKENS_COUNT = 1;
+
+    // Voice Assistant
+    public static final String REPLACEMENT = "Replacement_";
 }

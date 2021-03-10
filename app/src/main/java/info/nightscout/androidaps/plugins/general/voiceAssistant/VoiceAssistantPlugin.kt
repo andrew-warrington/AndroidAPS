@@ -20,7 +20,6 @@ package info.nightscout.androidaps.plugins.general.voiceAssistant
 //TODO Check whether bolus wizard works without Wear activated
 //TODO add InstallTTSData into setting screen.
 //TODO revert safetyplugin
-//TODO replace "I confirm" with a random 3-digit number
 
 import android.app.KeyguardManager
 import android.content.ActivityNotFoundException
@@ -33,6 +32,7 @@ import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.widget.Toast
+import androidx.fragment.app.FragmentActivity
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreference
@@ -45,6 +45,7 @@ import info.nightscout.androidaps.db.Source
 import info.nightscout.androidaps.db.TempTarget
 import info.nightscout.androidaps.db.Treatment
 import info.nightscout.androidaps.events.EventPreferenceChange
+import info.nightscout.androidaps.events.EventProfileStoreChanged
 import info.nightscout.androidaps.interfaces.*
 import info.nightscout.androidaps.logging.AAPSLogger
 import info.nightscout.androidaps.logging.LTag
@@ -58,6 +59,7 @@ import info.nightscout.androidaps.utils.DateUtil
 import info.nightscout.androidaps.utils.DecimalFormatter
 import info.nightscout.androidaps.utils.FabricPrivacy
 import info.nightscout.androidaps.utils.SafeParse
+import info.nightscout.androidaps.utils.alertDialogs.OKDialog
 import info.nightscout.androidaps.utils.extensions.plusAssign
 import info.nightscout.androidaps.utils.extensions.runOnUiThread
 import info.nightscout.androidaps.utils.resources.ResourceHelper
@@ -65,6 +67,9 @@ import info.nightscout.androidaps.utils.sharedPreferences.SP
 import info.nightscout.androidaps.utils.wizard.BolusWizard
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
+import org.json.JSONArray
+import org.json.JSONException
+import org.json.JSONObject
 import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -114,12 +119,15 @@ class VoiceAssistantPlugin @Inject constructor(
     private var keywordArray: Array<String> = arrayOf("carb", "bolus", "profile", "switch", "calculate", "gram", "minute", "hour", "unit", "glucose", "iob", "insulin", "cob", "trend", "basal", "bolus", "delta", "target", "status", "summary", "cancel", "automation")
     lateinit var tts: TextToSpeech
     lateinit var spokenCommandArray: Array<String>
+    lateinit var rawReplacement: WordReplacementsStore
     var map = HashMap<String, String>()
     var messages = ArrayList<String>()
+
 
     override fun onStart() {
         processSettings(null)
         super.onStart()
+        loadSettings()
         disposable += rxBus
             .toObservable(EventPreferenceChange::class.java)
             .observeOn(Schedulers.io())
@@ -1218,4 +1226,128 @@ class VoiceAssistantPlugin @Inject constructor(
         val confirmationCode = Random().nextInt(899) + 100   //generate a pseudo-random number between 100 and 999
         return confirmationCode.toString()
     }
+
+
+    //---------------------------------------------------------------------------------------------
+    //---------------------------------------------------------------------------------------------
+    //---------------------------------------------------------------------------------------------
+
+    class SingleReplacement {
+        internal var word: String? = null
+        internal var replacement: String? = null
+
+    }
+
+
+    var isEdited: Boolean = false
+    var replacements: ArrayList<SingleReplacement> = ArrayList()
+
+    var numOfReplacements = 0
+    internal var currentReplacementIndex = 0
+
+    fun currentProfile(): SingleReplacement? = if (numOfReplacements > 0) replacements[currentReplacementIndex] else null
+
+    @Synchronized
+    fun isValidEditState(): Boolean {
+        return true
+        //return createWordReplacementStore().getDefaultProfile()?.isValid(resourceHelper.gs(R.string.localprofile), false)
+            ?: false
+    }
+
+    @Synchronized
+    fun storeSettings(activity: FragmentActivity? = null) {
+        for (i in 0 until numOfReplacements) {
+            replacements[i].run {
+                sp.putString("word", word!!)
+                sp.putString("replacement", replacement!!)
+            }
+        }
+        sp.putInt(Constants.REPLACEMENT, numOfReplacements)
+
+        createAndStoreWordReplacement()
+        isEdited = false
+        aapsLogger.debug(LTag.VOICECOMMAND, "Storing word replacement.")
+        rxBus.send(EventProfileStoreChanged())
+        var namesOK = true
+        replacements.forEach {
+            val name = it.word ?: "."
+            if (name.contains(".")) namesOK = false
+        }
+        replacements.forEach {
+            val name = it.replacement ?: "."
+            if (name.contains(".")) namesOK = false
+        }
+    }
+
+    @Synchronized
+    fun loadSettings() {
+        numOfReplacements = sp.getInt(Constants.REPLACEMENT, 0)
+        replacements.clear()
+
+        for (i in 0 until numOfReplacements) {
+            val p = SingleReplacement()
+            p.word = sp.getString("word", "")
+            p.replacement = sp.getString("replacement", "")
+            if (isExistingReplacement(p.word, p.replacement)) continue
+            replacements.add(p)
+        }
+        isEdited = false
+        numOfReplacements = replacements.size
+        createAndStoreWordReplacement()
+    }
+
+    private fun isExistingReplacement(word: String?, replacement: String?): Boolean {
+
+        return false
+    }
+
+    private fun createAndStoreWordReplacement() {
+        rawReplacement = createWordReplacementStore()
+    }
+
+    fun addNewReplacement() {
+        val p = SingleReplacement()
+        p.word = ""
+        p.replacement = ""
+        replacements.add(p)
+        currentReplacementIndex = replacements.size - 1
+        numOfReplacements++
+        createAndStoreWordReplacement()
+        storeSettings()
+    }
+
+    fun removeCurrentReplacement() {
+        replacements.removeAt(currentReplacementIndex)
+        numOfReplacements--
+        if (replacements.size == 0) addNewReplacement()
+        currentReplacementIndex = 0
+        createAndStoreWordReplacement()
+        storeSettings()
+        isEdited = false
+    }
+
+    fun createWordReplacementStore(): WordReplacementsStore {
+        val json = JSONObject()
+        val store = JSONObject()
+
+        try {
+            for (i in 0 until numOfReplacements) {
+                replacements[i].run {
+                    val replace = JSONObject()
+                    replace.put("word", word)
+                    replace.put("replacement", replacement)
+                    store.put(word, replace)
+                }
+            }
+            json.put("store", store)
+        } catch (e: JSONException) {
+            aapsLogger.error("Unhandled exception", e)
+        }
+        return WordReplacementsStore(injector, json)
+    }
+
+    fun getWordReplacement(word: String): WordReplacementsStore? {
+        return rawReplacement
+    }
+
 }

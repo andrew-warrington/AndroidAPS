@@ -1432,5 +1432,9 @@
     <string name="needvoicepermission">Application needs permission to record audio if you would like to use voice commands</string>
     <string name="voiceassistant_listening">Listening ...</string>
     <string name="voiceassistant_listeningtitle">Voice Assistant</string>
+    <string name="voiceassistant_wordreplacementmeans">means</string>
+    <string name="voiceassistant_messages_short">MESSAGES</string>
+    <string name="voiceassistant_wordreplacements_short">WORD REPLACEMENTS</string>
+    <string name="voiceassistant_wr_label">WR</string>
 
 </resources>

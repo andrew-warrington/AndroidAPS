@@ -1,0 +1,62 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_horizontal"
+    android:orientation="horizontal"
+    android:paddingTop="5dp"
+    android:textAppearance="?android:attr/textAppearanceSmall">
+
+    <LinearLayout
+        android:layout_width="300dp"
+        android:layout_height="24dp"
+        android:orientation="horizontal"
+        android:layout_gravity="center_vertical">
+
+        <info.nightscout.androidaps.utils.ui.WordEditor
+            android:id="@+id/word"
+            android:layout_width="120dp"
+            android:layout_height="24dp"
+            android:background="@drawable/border_gray"
+            android:text=""
+            android:textSize="18sp"
+            android:textColor="@android:color/black"
+            android:inputType="text"
+            android:gravity="start"
+            android:imeOptions="actionDone"
+            />
+
+        <TextView
+            android:layout_width="60dp"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:textSize="12sp"
+            android:textColor="@android:color/white"
+            android:text="@string/voiceassistant_wordreplacementmeans"
+            />
+
+
+        <info.nightscout.androidaps.utils.ui.WordEditor
+            android:id="@+id/replacement"
+            android:layout_width="120dp"
+            android:layout_height="24dp"
+            android:background="@drawable/border_gray"
+            android:text=""
+            android:textSize="18sp"
+            android:textColor="@android:color/black"
+            android:inputType="text"
+            android:gravity="end"
+            android:imeOptions="actionDone"
+            />
+
+    </LinearLayout>
+
+    <ImageView
+        android:id="@+id/wordlistedit_remove"
+        android:layout_width="35dp"
+        android:layout_height="35dp"
+        android:layout_gravity="center_vertical"
+        android:layout_marginStart="15dp"
+        app:srcCompat="@drawable/ic_remove" />
+
+</LinearLayout>

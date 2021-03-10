@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="120dp"
+    android:layout_height="24dp"
+    android:orientation="horizontal"
+    android:background="@drawable/background_darkgray">
+
+    <EditText
+        android:id="@+id/word"
+        android:layout_width="119dp"
+        android:layout_height="23dp"
+        android:background="@drawable/border_gray"
+        android:text=""
+        android:textSize="18sp"
+        android:textColor="@android:color/black"
+        android:inputType="text"
+        android:gravity="start"
+        android:imeOptions="actionDone"
+        />
+
+</LinearLayout>
